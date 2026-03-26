@@ -1,0 +1,1444 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import {
+  Shield, RefreshCw, Settings, Bell, TrendingUp,
+  AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
+  Fingerprint, Lock, KeyRound,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Play {
+  id: number;
+  symbol: string;
+  play_type: string;
+  short_strike: number;
+  long_strike: number;
+  expiration: string;
+  dte: number;
+  current_price: number;
+  net_credit: number;
+  max_risk: number;
+  spread_width: number;
+  buffer_pct: number;
+  score: number;
+  volume: number;
+  open_interest: number;
+  iv: number;
+  found_at: string;
+}
+
+interface Position {
+  id: number;
+  symbol: string;
+  short_strike: number;
+  long_strike: number;
+  expiration: string;
+  dte_at_entry: number;
+  entry_price: number;
+  entry_credit: number;
+  contracts: number;
+  max_risk: number;
+  buffer_pct_at_entry: number;
+  score_at_entry: number;
+  entry_notes?: string;
+  tracked_at: string;
+  current_mid?: number;
+  current_price?: number;
+  pnl_pct?: number;
+  last_updated?: string;
+  status: 'open' | 'closed';
+  exit_credit?: number;
+  exit_reason?: string;
+  closed_at?: string;
+}
+
+interface Alert {
+  id: number;
+  position_id: number;
+  alert_type: 'profit' | 'loss';
+  message: string;
+  triggered_at: string;
+  acknowledged: number;
+  symbol?: string;
+}
+
+interface Recommendation {
+  recommendation: 'hold' | 'caution' | 'exit';
+  summary: string;
+  rsi: number | null;
+  current_price: number;
+  buffer_pct: number;
+  reasons: string[];
+  exit_signals: number;
+}
+
+interface BotStatus {
+  status: string;
+  plays_available: number;
+  open_positions: number;
+  unread_alerts: number;
+  scanning: boolean;
+}
+
+type Tab = 'plays' | 'positions' | 'history' | 'alerts';
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+
+function getBase(): string {
+  return localStorage.getItem('fortress_server') || 'http://100.98.20.112:8001';
+}
+
+function getApiKey(): string {
+  return localStorage.getItem('fortress_api_key') || '';
+}
+
+async function apiFetch(path: string, opts?: RequestInit) {
+  const key = getApiKey();
+  const headers: Record<string, string> = {
+    ...(opts?.headers as Record<string, string> || {}),
+    ...(key ? { 'X-API-Key': key } : {}),
+  };
+  const res = await fetch(`${getBase()}${path}`, { ...opts, headers });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+// ─── Shared Components ────────────────────────────────────────────────────────
+
+function ScoreBadge({ score }: { score: number }) {
+  const cls =
+    score >= 8 ? 'bg-emerald-500 text-black'
+    : score >= 6 ? 'bg-yellow-400 text-black'
+    : score >= 4 ? 'bg-orange-400 text-black'
+    : 'bg-red-500 text-white';
+  return (
+    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}>
+      {score}/10
+    </span>
+  );
+}
+
+function StatPill({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
+  return (
+    <div className="text-center">
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-sm font-semibold ${dim ? 'text-zinc-400' : 'text-zinc-100'}`}>{value}</p>
+    </div>
+  );
+}
+
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 48 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 48 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 300 }}
+        className="w-full max-w-md bg-[#1C1C1E] border border-zinc-700/60 rounded-3xl shadow-2xl overflow-hidden"
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Play Card ────────────────────────────────────────────────────────────────
+
+function formatExpiration(dateStr: string, dte: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const mon = d.toLocaleDateString('en-US', { month: 'short' });
+  const num = d.getDate();
+  return `${day} ${mon} ${num}  ·  ${dte}d`;
+}
+
+function formatFoundAt(ts: string): string {
+  if (!ts) return '';
+  const d = new Date(ts.includes('T') ? ts : ts.replace(' ', 'T') + 'Z');
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function PlayCard({ play, onTrack }: { play: Play; onTrack: (p: Play) => void }) {
+  const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-[#161618] border border-zinc-800/80 rounded-2xl p-4"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-2xl font-bold text-white">{play.symbol}</span>
+            <ScoreBadge score={play.score} />
+            {play.play_type === 'earnings' && (
+              <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">
+                Earnings
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-zinc-500 mt-0.5">${play.current_price.toFixed(2)} current</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-bold text-emerald-400">${play.net_credit.toFixed(2)}</p>
+          <p className="text-[10px] text-zinc-500">per share</p>
+        </div>
+      </div>
+
+      {/* Expiration banner */}
+      <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700/50 rounded-xl px-3 py-2 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Expires</span>
+          <span className="text-sm font-semibold text-white">{formatExpiration(play.expiration, play.dte)}</span>
+        </div>
+        {play.found_at && (
+          <span className="text-[10px] text-zinc-500">Found {formatFoundAt(play.found_at)}</span>
+        )}
+      </div>
+
+      <div className="bg-zinc-900/60 rounded-xl p-3 mb-3 space-y-1.5">
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-400">Sell (short)</span>
+          <span className="font-mono font-semibold text-emerald-400">${play.short_strike} Put</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-zinc-400">Buy (long)</span>
+          <span className="font-mono font-semibold text-red-400">${play.long_strike} Put</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-x-2 gap-y-2 mb-4">
+        <StatPill label="Buffer" value={`${play.buffer_pct.toFixed(1)}%`} />
+        <StatPill label="Return" value={`${returnPct}%`} />
+        <StatPill label="Max Risk" value={`$${play.max_risk.toFixed(0)}`} />
+        <StatPill label="IV" value={`${(play.iv * 100).toFixed(0)}%`} dim />
+        <StatPill label="Volume" value={`${play.volume || 0}`} dim />
+        <StatPill label="OI" value={`${play.open_interest || 0}`} dim />
+      </div>
+
+      <button
+        onClick={() => onTrack(play)}
+        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors"
+      >
+        Track Trade
+      </button>
+    </motion.div>
+  );
+}
+
+// ─── Position Card ────────────────────────────────────────────────────────────
+
+function PositionCard({
+  pos,
+  onRecommend,
+  onClose,
+}: {
+  pos: Position;
+  onRecommend: (p: Position) => void;
+  onClose: (p: Position) => void;
+}) {
+  const pnl = pos.pnl_pct ?? 0;
+  const pnlColor =
+    pnl >= 30 ? 'text-emerald-300'
+    : pnl >= 10 ? 'text-green-400'
+    : pnl >= 0 ? 'text-zinc-200'
+    : pnl >= -10 ? 'text-yellow-400'
+    : 'text-red-400';
+  const borderColor =
+    pnl >= 20 ? 'border-emerald-500/30' : pnl <= -10 ? 'border-red-500/30' : 'border-zinc-800/80';
+  const barColor =
+    pnl >= 50 ? 'bg-emerald-500' : pnl >= 20 ? 'bg-yellow-400' : pnl >= 0 ? 'bg-blue-500' : 'bg-red-500';
+  const progress = Math.max(0, Math.min(100, pnl));
+
+  const expDate = new Date(pos.expiration);
+  const dteLeft = Math.max(0, Math.floor((expDate.getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-[#161618] border ${borderColor} rounded-2xl p-4`}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <span className="text-xl font-bold text-white">{pos.symbol}</span>
+          <p className="text-sm text-zinc-400">
+            ${pos.short_strike}/{pos.long_strike} Put Spread
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {pos.expiration} · {dteLeft}d left · {pos.contracts}x
+          </p>
+        </div>
+        <div className="text-right">
+          <p className={`text-2xl font-bold ${pnlColor}`}>
+            {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
+          </p>
+          <p className="text-[10px] text-zinc-500">P&L</p>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <div className="flex justify-between text-[11px] text-zinc-500 mb-1">
+          <span>Progress to max profit</span>
+          <span>{Math.max(0, pnl).toFixed(0)}% / 100%</span>
+        </div>
+        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <StatPill label="Entry" value={`$${pos.entry_credit.toFixed(2)}`} />
+        <StatPill label="Current Mid" value={pos.current_mid != null ? `$${pos.current_mid.toFixed(2)}` : '—'} />
+        <StatPill label="Underlying" value={pos.current_price != null ? `$${pos.current_price.toFixed(2)}` : '—'} />
+      </div>
+
+      {pos.last_updated && (
+        <p className="text-[10px] text-zinc-600 mb-2 text-right">
+          Updated {pos.last_updated.slice(11, 16)}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onRecommend(pos)}
+          className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-zinc-200 text-sm font-medium rounded-xl transition-colors"
+        >
+          Should I Exit?
+        </button>
+        <button
+          onClick={() => onClose(pos)}
+          className="flex-1 py-2.5 bg-red-500/15 hover:bg-red-500/25 active:bg-red-500/10 text-red-400 text-sm font-medium rounded-xl transition-colors border border-red-500/20"
+        >
+          Close Trade
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── History Row ─────────────────────────────────────────────────────────────
+
+function HistoryRow({ pos }: { pos: Position }) {
+  const pnl = pos.pnl_pct ?? 0;
+  const win = pnl >= 0;
+  return (
+    <div className="bg-[#161618] border border-zinc-800/80 rounded-xl p-3.5 flex items-center justify-between">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-white">{pos.symbol}</span>
+          <span className="text-xs text-zinc-500">${pos.short_strike}/{pos.long_strike}</span>
+        </div>
+        <p className="text-xs text-zinc-500 mt-0.5">
+          {pos.exit_reason || 'closed'} · {pos.closed_at?.slice(0, 10) ?? ''}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className={`font-bold ${win ? 'text-emerald-400' : 'text-red-400'}`}>
+          {win ? '+' : ''}{pnl.toFixed(1)}%
+        </p>
+        <p className="text-[11px] text-zinc-500">
+          ${pos.entry_credit.toFixed(2)} → ${pos.exit_credit?.toFixed(2) ?? '?'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Alert Row ────────────────────────────────────────────────────────────────
+
+function AlertRow({ alert, onAck }: { alert: Alert; onAck: (id: number) => void }) {
+  const isProfit = alert.alert_type === 'profit';
+  return (
+    <div
+      className={`bg-[#161618] border rounded-xl p-3.5 ${
+        isProfit ? 'border-emerald-500/25' : 'border-red-500/25'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`mt-0.5 shrink-0 ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+          {isProfit ? <TrendingUp className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-bold mb-0.5 ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isProfit ? 'PROFIT TARGET HIT' : 'LOSS WARNING'}
+          </p>
+          <p className="text-sm text-zinc-200 leading-snug">{alert.message}</p>
+          <p className="text-[10px] text-zinc-600 mt-1">
+            {alert.triggered_at.slice(0, 16).replace('T', ' ')}
+          </p>
+        </div>
+        {!alert.acknowledged && (
+          <button
+            onClick={() => onAck(alert.id)}
+            className="shrink-0 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            <X className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Track Modal ──────────────────────────────────────────────────────────────
+
+function TrackModal({
+  play,
+  onConfirm,
+  onClose,
+}: {
+  play: Play;
+  onConfirm: (contracts: number, notes: string) => void;
+  onClose: () => void;
+}) {
+  const [contracts, setContracts] = useState(1);
+  const [notes, setNotes] = useState('');
+  const totalCredit = (play.net_credit * 100 * contracts).toFixed(0);
+  const totalRisk = (play.max_risk * contracts).toFixed(0);
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold text-white">Track This Trade</h3>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="bg-zinc-900 rounded-2xl p-4 mb-5">
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <p className="text-lg font-bold text-white">{play.symbol}</p>
+              <p className="text-sm text-zinc-400">
+                ${play.short_strike} / ${play.long_strike} Put · {play.expiration}
+              </p>
+            </div>
+            <ScoreBadge score={play.score} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase">Credit / Contract</p>
+              <p className="font-bold text-emerald-400">${(play.net_credit * 100).toFixed(0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase">Max Risk / Contract</p>
+              <p className="font-bold text-red-400">${play.max_risk.toFixed(0)}</p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-sm text-zinc-400 mb-2">Contracts</p>
+        <div className="flex items-center justify-center gap-6 mb-4">
+          <button
+            onClick={() => setContracts(Math.max(1, contracts - 1))}
+            className="w-11 h-11 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 rounded-2xl text-white text-xl font-bold transition-colors"
+          >
+            −
+          </button>
+          <span className="text-4xl font-bold text-white w-12 text-center">{contracts}</span>
+          <button
+            onClick={() => setContracts(contracts + 1)}
+            className="w-11 h-11 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 rounded-2xl text-white text-xl font-bold transition-colors"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4 bg-zinc-900 rounded-xl p-3">
+          <div className="text-center">
+            <p className="text-[10px] text-zinc-500 uppercase">Cash Collected</p>
+            <p className="text-lg font-bold text-emerald-400">${totalCredit}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-zinc-500 uppercase">Total Max Risk</p>
+            <p className="text-lg font-bold text-red-400">${totalRisk}</p>
+          </div>
+        </div>
+
+        <input
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Notes (optional)"
+          className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-4 focus:outline-none focus:border-emerald-500"
+        />
+
+        <button
+          onClick={() => onConfirm(contracts, notes)}
+          className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold rounded-xl transition-colors"
+        >
+          Add to Tracker
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Recommend Modal ──────────────────────────────────────────────────────────
+
+function RecommendModal({ position, onClose }: { position: Position; onClose: () => void }) {
+  const [rec, setRec] = useState<Recommendation | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const url = `${getBase()}/api/recommend/${position.symbol}?short_strike=${position.short_strike}&long_strike=${position.long_strike}&entry_credit=${position.entry_credit}&pnl_pct=${position.pnl_pct ?? 0}`;
+    fetch(url)
+      .then(r => r.json())
+      .then(setRec)
+      .catch(() =>
+        setRec({
+          recommendation: 'hold',
+          summary: 'Unable to fetch data',
+          rsi: null,
+          current_price: 0,
+          buffer_pct: 0,
+          reasons: ['Check your server connection'],
+          exit_signals: 0,
+        })
+      )
+      .finally(() => setLoading(false));
+  }, [position]);
+
+  const recStyle =
+    rec?.recommendation === 'exit'
+      ? 'text-red-400 border-red-500/30 bg-red-500/8'
+      : rec?.recommendation === 'caution'
+      ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/8'
+      : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/8';
+
+  const pnl = position.pnl_pct ?? 0;
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold text-white">Exit Recommendation</h3>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="bg-zinc-900 rounded-xl p-3 mb-4 flex justify-between items-center">
+          <div>
+            <p className="font-bold text-white">{position.symbol}</p>
+            <p className="text-xs text-zinc-400">${position.short_strike}/{position.long_strike} Put Spread</p>
+          </div>
+          <p className={`text-xl font-bold ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center py-10 gap-3">
+            <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+            <p className="text-sm text-zinc-500">Fetching RSI & price data...</p>
+          </div>
+        ) : rec ? (
+          <>
+            <div className={`border rounded-2xl p-4 mb-4 ${recStyle}`}>
+              <p className="text-lg font-bold">{rec.summary}</p>
+              {rec.rsi != null && (
+                <p className="text-sm opacity-80 mt-1">RSI-14: {rec.rsi}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 mb-4">
+              {rec.reasons.map((r, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <span className="text-zinc-600 mt-0.5 shrink-0">•</span>
+                  <span>{r}</span>
+                </div>
+              ))}
+            </div>
+
+            {rec.current_price > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-zinc-500 uppercase">Stock Price</p>
+                  <p className="text-sm font-semibold text-white">${rec.current_price.toFixed(2)}</p>
+                </div>
+                <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-zinc-500 uppercase">Buffer Left</p>
+                  <p className={`text-sm font-semibold ${rec.buffer_pct < 3 ? 'text-red-400' : 'text-white'}`}>
+                    {rec.buffer_pct.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-zinc-500 uppercase">Signals</p>
+                  <p className={`text-sm font-semibold ${rec.exit_signals >= 3 ? 'text-red-400' : rec.exit_signals >= 2 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                    {rec.exit_signals}/3
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : null}
+
+        <button
+          onClick={onClose}
+          className="w-full mt-5 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold rounded-xl transition-colors"
+        >
+          Done
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Close Modal ──────────────────────────────────────────────────────────────
+
+function CloseModal({
+  position,
+  onConfirm,
+  onClose,
+}: {
+  position: Position;
+  onConfirm: (exitCredit: number, reason: string) => void;
+  onClose: () => void;
+}) {
+  const [exitCredit, setExitCredit] = useState(
+    position.current_mid != null ? position.current_mid.toString() : ''
+  );
+  const [reason, setReason] = useState('manual');
+  const reasons = ['manual', 'TP', 'SL', 'expired', 'rolled', 'other'];
+
+  const pnlNum =
+    exitCredit && position.entry_credit > 0
+      ? ((position.entry_credit - parseFloat(exitCredit)) / position.entry_credit) * 100
+      : null;
+  const isWin = pnlNum != null && pnlNum >= 0;
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold text-white">Close Position</h3>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="bg-zinc-900 rounded-xl p-3 mb-4">
+          <p className="font-bold text-white">{position.symbol}</p>
+          <p className="text-sm text-zinc-400">
+            ${position.short_strike}/{position.long_strike} · Entry credit: ${position.entry_credit.toFixed(2)}
+          </p>
+        </div>
+
+        <p className="text-sm text-zinc-400 mb-2">Exit Credit (cost to close spread)</p>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={exitCredit}
+          onChange={e => setExitCredit(e.target.value)}
+          placeholder="e.g. 0.15"
+          className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-3 text-white text-base placeholder:text-zinc-600 mb-4 focus:outline-none focus:border-emerald-500"
+        />
+
+        {pnlNum != null && (
+          <div
+            className={`text-center py-3 rounded-2xl mb-4 border ${
+              isWin ? 'bg-emerald-500/8 border-emerald-500/25' : 'bg-red-500/8 border-red-500/25'
+            }`}
+          >
+            <p className={`text-3xl font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+              {isWin ? '+' : ''}{pnlNum.toFixed(1)}%
+            </p>
+            <p className="text-xs text-zinc-500 mt-1">Final P&L</p>
+          </div>
+        )}
+
+        <p className="text-sm text-zinc-400 mb-2">Reason</p>
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {reasons.map(r => (
+            <button
+              key={r}
+              onClick={() => setReason(r)}
+              className={`py-2 text-sm font-medium rounded-xl border transition-colors ${
+                reason === r
+                  ? 'bg-emerald-500 border-emerald-500 text-black'
+                  : 'bg-zinc-900 border-zinc-700/60 text-zinc-400 hover:border-zinc-500'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+
+        <button
+          disabled={!exitCredit || isNaN(parseFloat(exitCredit))}
+          onClick={() => onConfirm(parseFloat(exitCredit), reason)}
+          className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 text-black font-bold rounded-xl transition-colors"
+        >
+          Confirm Close
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Settings Modal ───────────────────────────────────────────────────────────
+
+function SettingsModal({ onClose }: { onClose: () => void }) {
+  const [url, setUrl] = useState(localStorage.getItem('fortress_server') || 'http://100.98.20.112:8001');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('fortress_api_key') || '');
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinSuccess, setPinSuccess] = useState('');
+  const [section, setSection] = useState<'connection' | 'security' | 'telegram'>('connection');
+  const [tier, setTier] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
+  }, [apiKey]);
+
+  const saveConnection = () => {
+    localStorage.setItem('fortress_server', url);
+    localStorage.setItem('fortress_api_key', apiKey);
+    onClose();
+    window.location.reload();
+  };
+
+  const savePin = () => {
+    setPinError('');
+    setPinSuccess('');
+    const saved = localStorage.getItem('fortress_pin') || '1234';
+    if (currentPin !== saved) { setPinError('Current PIN is incorrect'); return; }
+    if (!/^\d{4}$/.test(newPin)) { setPinError('New PIN must be exactly 4 digits'); return; }
+    if (newPin !== confirmPin) { setPinError('PINs do not match'); return; }
+    localStorage.setItem('fortress_pin', newPin);
+    setPinSuccess('PIN updated successfully');
+    setCurrentPin(''); setNewPin(''); setConfirmPin('');
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-5">
+          <h3 className="text-lg font-bold text-white">Settings</h3>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-zinc-900 rounded-xl p-1 mb-5">
+          {(['connection', 'security', ...(tier === 'elite' ? ['telegram'] : [])] as const).map((s: any) => (
+            <button
+              key={s}
+              onClick={() => setSection(s)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${
+                section === s ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {s === 'connection' ? 'Connection' : s === 'security' ? 'Security' : '✈ Telegram'}
+            </button>
+          ))}
+        </div>
+
+        {section === 'connection' && (
+          <>
+            <p className="text-sm text-zinc-400 mb-2">Backend Server URL</p>
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="http://192.168.x.x:8001"
+              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-2 focus:outline-none focus:border-emerald-500"
+            />
+            <p className="text-xs text-zinc-600 mb-4">
+              Run <code className="bg-zinc-800 px-1 py-0.5 rounded text-zinc-400">start_server.bat</code> on your PC, then paste your IPv4 address here.
+            </p>
+
+            <p className="text-sm text-zinc-400 mb-2 flex items-center gap-2">
+              <KeyRound className="w-4 h-4" /> API Key
+            </p>
+            <input
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="frt_xxxxxxxxxxxxxxxxxxxx"
+              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-1 focus:outline-none focus:border-emerald-500 font-mono"
+            />
+            <p className="text-xs text-zinc-600 mb-5">
+              Subscribe at <span className="text-emerald-500">fortress-options.com</span> to get your key.
+            </p>
+
+            <button
+              onClick={saveConnection}
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors"
+            >
+              Save & Reconnect
+            </button>
+          </>
+        )}
+
+        {section === 'security' && (
+          <>
+            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
+              <Lock className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-white">PIN Lock</p>
+                <p className="text-xs text-zinc-500">App locks automatically when closed</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-400 mb-2">Current PIN</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={currentPin}
+              onChange={e => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="••••"
+              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-3 focus:outline-none focus:border-emerald-500 tracking-widest text-center text-lg"
+            />
+
+            <p className="text-sm text-zinc-400 mb-2">New PIN (4 digits)</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={newPin}
+              onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="••••"
+              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-3 focus:outline-none focus:border-emerald-500 tracking-widest text-center text-lg"
+            />
+
+            <p className="text-sm text-zinc-400 mb-2">Confirm New PIN</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={confirmPin}
+              onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="••••"
+              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-4 focus:outline-none focus:border-emerald-500 tracking-widest text-center text-lg"
+            />
+
+            {pinError && <p className="text-red-400 text-sm mb-3 text-center">{pinError}</p>}
+            {pinSuccess && <p className="text-emerald-400 text-sm mb-3 text-center">{pinSuccess}</p>}
+
+            <button
+              onClick={savePin}
+              disabled={!currentPin || !newPin || !confirmPin}
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 text-black font-bold rounded-xl transition-colors"
+            >
+              Update PIN
+            </button>
+
+            <p className="text-xs text-zinc-600 mt-3 text-center">
+              Default PIN is <code className="text-zinc-500">1234</code> — change it now for security
+            </p>
+          </>
+        )}
+
+        {section === 'telegram' && tier === 'elite' && (
+          <>
+            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
+              <span className="text-2xl">✈</span>
+              <div>
+                <p className="text-sm font-semibold text-white">Telegram Push Alerts</p>
+                <p className="text-xs text-zinc-500">Elite — get notified instantly on your phone</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-5">
+              <div className="bg-zinc-900 rounded-xl p-4">
+                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 1</p>
+                <p className="text-sm text-zinc-200">Open Telegram and search for your bot:</p>
+                <p className="text-base font-bold text-emerald-400 mt-1 font-mono">@FortressOptionsBot</p>
+              </div>
+              <div className="bg-zinc-900 rounded-xl p-4">
+                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 2</p>
+                <p className="text-sm text-zinc-200 mb-2">Send this message to the bot:</p>
+                <div className="bg-zinc-800 rounded-lg p-3 flex items-center justify-between gap-2">
+                  <code className="text-emerald-400 text-xs break-all">/start {apiKey || 'frt_your_api_key'}</code>
+                </div>
+              </div>
+              <div className="bg-zinc-900 rounded-xl p-4">
+                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 3</p>
+                <p className="text-sm text-zinc-200">The bot confirms — you're connected. That's it!</p>
+              </div>
+            </div>
+
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-400 text-center">
+              You'll receive instant alerts when any position hits +20% profit or −10% loss
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Lock Screen ─────────────────────────────────────────────────────────────
+
+function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [biometryAvailable, setBiometryAvailable] = useState(false);
+  const savedPin = localStorage.getItem('fortress_pin') || '1234';
+
+  useEffect(() => {
+    // Check if Capacitor biometric plugin is available
+    try {
+      // @ts-ignore
+      if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+        setBiometryAvailable(true);
+        triggerBiometric();
+      }
+    } catch {}
+  }, []);
+
+  const triggerBiometric = async () => {
+    try {
+      // @ts-ignore
+      const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+      await BiometricAuth.authenticate({
+        reason: 'Unlock Fortress Options',
+        cancelTitle: 'Use PIN',
+        fallbackTitle: 'Use PIN',
+      });
+      onUnlock();
+    } catch {}
+  };
+
+  const handleDigit = (d: string) => {
+    const next = pin + d;
+    setPin(next);
+    if (next.length === 4) {
+      if (next === savedPin) {
+        onUnlock();
+      } else {
+        setError('Incorrect PIN');
+        setPin('');
+      }
+    }
+  };
+
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
+      <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
+        <Shield className="w-9 h-9 text-black" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white text-center">Fortress Options</h1>
+        <p className="text-sm text-zinc-500 text-center mt-1">Enter PIN to continue</p>
+      </div>
+
+      {/* PIN dots */}
+      <div className="flex gap-4">
+        {[0,1,2,3].map(i => (
+          <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
+            i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'
+          }`} />
+        ))}
+      </div>
+
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {/* Numpad */}
+      <div className="grid grid-cols-3 gap-3 w-64">
+        {digits.map((d, i) => (
+          d === '' ? <div key={i} /> :
+          <button
+            key={i}
+            onClick={() => d === '⌫' ? setPin(p => p.slice(0,-1)) : handleDigit(d)}
+            className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl text-white text-xl font-semibold transition-colors border border-zinc-800"
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      {biometryAvailable && (
+        <button onClick={triggerBiometric} className="flex items-center gap-2 text-emerald-400 text-sm">
+          <Fingerprint className="w-5 h-5" />
+          Use fingerprint
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Screens ─────────────────────────────────────────────────────────────────
+
+function PlaysScreen({
+  plays, loading, scanning, onTrack, onRefresh,
+}: {
+  plays: Play[];
+  loading: boolean;
+  scanning: boolean;
+  onTrack: (p: Play) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
+        <div>
+          <h2 className="text-sm font-bold text-white">Ranked Plays</h2>
+          <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+        </div>
+        <button
+          onClick={onRefresh}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm text-zinc-300 transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${scanning || loading ? 'animate-spin text-emerald-400' : ''}`} />
+          {scanning ? 'Scanning…' : 'Scan'}
+        </button>
+      </div>
+
+      {loading && plays.length === 0 ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      ) : plays.length === 0 ? (
+        <div className="flex flex-col items-center py-20 text-zinc-600 gap-3">
+          <Target className="w-14 h-14 opacity-20" />
+          <p className="font-medium text-zinc-500">No plays found</p>
+          <p className="text-sm text-zinc-600">Tap Scan to check the market</p>
+        </div>
+      ) : (
+        <div className="px-4 py-4 space-y-4">
+          {plays.map(p => (
+            <PlayCard key={p.id} play={p} onTrack={onTrack} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PositionsScreen({
+  positions, loading, onRefresh, onRecommend, onClose,
+}: {
+  positions: Position[];
+  loading: boolean;
+  onRefresh: () => void;
+  onRecommend: (p: Position) => void;
+  onClose: (p: Position) => void;
+}) {
+  const avgPnl = positions.length
+    ? positions.reduce((s, p) => s + (p.pnl_pct ?? 0), 0) / positions.length
+    : 0;
+  const profitable = positions.filter(p => (p.pnl_pct ?? 0) > 0).length;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-bold text-white">Open Positions</h2>
+            <p className="text-xs text-zinc-500">{positions.length} tracked</p>
+          </div>
+          <button
+            onClick={onRefresh}
+            className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 text-zinc-400 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        {positions.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Open</p>
+              <p className="font-bold text-white">{positions.length}</p>
+            </div>
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Avg P&L</p>
+              <p className={`font-bold ${avgPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {avgPnl >= 0 ? '+' : ''}{avgPnl.toFixed(1)}%
+              </p>
+            </div>
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Winning</p>
+              <p className="font-bold text-white">{profitable}/{positions.length}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {loading && positions.length === 0 ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      ) : positions.length === 0 ? (
+        <div className="flex flex-col items-center py-20 gap-3 text-zinc-600">
+          <BarChart2 className="w-14 h-14 opacity-20" />
+          <p className="font-medium text-zinc-500">No open positions</p>
+          <p className="text-sm">Track a play from the Plays tab</p>
+        </div>
+      ) : (
+        <div className="px-4 py-4 space-y-4">
+          {positions.map(p => (
+            <PositionCard key={p.id} pos={p} onRecommend={onRecommend} onClose={onClose} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryScreen({ history, loading }: { history: Position[]; loading: boolean }) {
+  const wins = history.filter(p => (p.pnl_pct ?? 0) >= 0).length;
+  const totalPnl = history.reduce((s, p) => s + (p.pnl_pct ?? 0), 0);
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
+        <h2 className="text-sm font-bold text-white">Trade History</h2>
+        <p className="text-xs text-zinc-500">{history.length} closed trades</p>
+        {history.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Win Rate</p>
+              <p className="font-bold text-white">{history.length ? ((wins / history.length) * 100).toFixed(0) : 0}%</p>
+            </div>
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Total P&L</p>
+              <p className={`font-bold ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(0)}%
+              </p>
+            </div>
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">W / L</p>
+              <p className="font-bold text-white">{wins} / {history.length - wins}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {loading && history.length === 0 ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      ) : history.length === 0 ? (
+        <div className="flex flex-col items-center py-20 gap-3 text-zinc-600">
+          <BookOpen className="w-14 h-14 opacity-20" />
+          <p className="font-medium text-zinc-500">No closed trades yet</p>
+        </div>
+      ) : (
+        <div className="px-4 py-4 space-y-2">
+          {history.map(p => <HistoryRow key={p.id} pos={p} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlertsScreen({
+  alerts, loading, onAck,
+}: {
+  alerts: Alert[];
+  loading: boolean;
+  onAck: (id: number) => void;
+}) {
+  const unread = alerts.filter(a => !a.acknowledged).length;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
+        <h2 className="text-sm font-bold text-white">Alerts</h2>
+        <p className="text-xs text-zinc-500">{unread} unread</p>
+      </div>
+
+      {loading && alerts.length === 0 ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="flex flex-col items-center py-20 gap-3 text-zinc-600">
+          <Bell className="w-14 h-14 opacity-20" />
+          <p className="font-medium text-zinc-500">No alerts yet</p>
+          <p className="text-sm">20%+ profit and 10%+ loss alerts appear here</p>
+        </div>
+      ) : (
+        <div className="px-4 py-4 space-y-3">
+          {alerts.map(a => <AlertRow key={a.id} alert={a} onAck={onAck} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Bottom Navigation ────────────────────────────────────────────────────────
+
+function BottomNav({
+  tab, setTab, alertCount,
+}: {
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  alertCount: number;
+}) {
+  const items: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'plays',     label: 'Plays',     icon: <Target className="w-5 h-5" /> },
+    { id: 'positions', label: 'Positions', icon: <BarChart2 className="w-5 h-5" /> },
+    { id: 'history',   label: 'History',   icon: <BookOpen className="w-5 h-5" /> },
+    { id: 'alerts',    label: 'Alerts',    icon: <Bell className="w-5 h-5" /> },
+  ];
+
+  return (
+    <nav className="shrink-0 flex bg-[#0D0D0E] border-t border-zinc-800/80 safe-area-bottom">
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => setTab(item.id)}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 relative transition-colors ${
+            tab === item.id ? 'text-emerald-400' : 'text-zinc-600 hover:text-zinc-400'
+          }`}
+        >
+          {item.icon}
+          <span className="text-[10px] font-medium">{item.label}</span>
+          {item.id === 'alerts' && alertCount > 0 && (
+            <span className="absolute top-2 right-[20%] min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+              {alertCount > 9 ? '9+' : alertCount}
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [locked, setLocked] = useState(true);
+  const [tab, setTab] = useState<Tab>('plays');
+  const [plays, setPlays] = useState<Play[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [history, setHistory] = useState<Position[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [status, setStatus] = useState<BotStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [trackPlay, setTrackPlay] = useState<Play | null>(null);
+  const [recommendPos, setRecommendPos] = useState<Position | null>(null);
+  const [closePos, setClosePos] = useState<Position | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [playsData, posData, histData, alertData, statData] = await Promise.allSettled([
+      apiFetch('/api/plays'),
+      apiFetch('/api/positions'),
+      apiFetch('/api/positions/history'),
+      apiFetch('/api/alerts'),
+      apiFetch('/api/status'),
+    ]);
+    if (playsData.status === 'fulfilled') setPlays(playsData.value);
+    if (posData.status === 'fulfilled') setPositions(posData.value);
+    if (histData.status === 'fulfilled') setHistory(histData.value);
+    if (alertData.status === 'fulfilled') setAlerts(alertData.value);
+    if (statData.status === 'fulfilled') setStatus(statData.value);
+    setLoading(false);
+  }, []);
+
+  // ── Notification setup ────────────────────────────────────────────────────
+  const seenAlertIds = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    // Request permission once on mount
+    LocalNotifications.requestPermissions().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Fire a push notification for each new unacknowledged alert
+    const newAlerts = alerts.filter(
+      a => !a.acknowledged && !seenAlertIds.current.has(a.id)
+    );
+    if (newAlerts.length === 0) return;
+
+    newAlerts.forEach(a => seenAlertIds.current.add(a.id));
+
+    const notifications = newAlerts.map((a, i) => ({
+      id: a.id,
+      title: a.alert_type === 'profit'
+        ? `📈 ${a.symbol} — Profit Target Hit!`
+        : `📉 ${a.symbol} — Loss Alert`,
+      body: a.message,
+      schedule: { at: new Date(Date.now() + i * 300) },
+      sound: undefined,
+      smallIcon: 'ic_stat_icon_config_sample',
+      iconColor: a.alert_type === 'profit' ? '#00c896' : '#ef4444',
+    }));
+
+    LocalNotifications.schedule({ notifications }).catch(() => {});
+  }, [alerts]);
+
+  useEffect(() => {
+    loadAll();
+    const id = setInterval(loadAll, 60_000);
+    return () => clearInterval(id);
+  }, [loadAll]);
+
+  const handleScan = async () => {
+    try {
+      await apiFetch('/api/scan', { method: 'POST' });
+      showToast('Scan started — refreshing in 30s');
+      setTimeout(loadAll, 30_000);
+    } catch {
+      showToast('Cannot reach server — check Settings');
+    }
+  };
+
+  const handleTrackConfirm = async (contracts: number, notes: string) => {
+    if (!trackPlay) return;
+    try {
+      await apiFetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ play_id: trackPlay.id, contracts, notes }),
+      });
+      showToast(`${trackPlay.symbol} added to tracker`);
+      setTrackPlay(null);
+      loadAll();
+    } catch {
+      showToast('Failed to track — check connection');
+    }
+  };
+
+  const handleCloseConfirm = async (exitCredit: number, reason: string) => {
+    if (!closePos) return;
+    try {
+      await apiFetch(`/api/positions/${closePos.id}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exit_credit: exitCredit, reason }),
+      });
+      showToast('Position closed');
+      setClosePos(null);
+      loadAll();
+    } catch {
+      showToast('Failed to close position');
+    }
+  };
+
+  const handleAck = async (id: number) => {
+    try {
+      await apiFetch(`/api/alerts/${id}/ack`, { method: 'POST' });
+      setAlerts(prev => prev.map(a => (a.id === id ? { ...a, acknowledged: 1 } : a)));
+    } catch {}
+  };
+
+  const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
+  const isOnline = status?.status === 'online';
+
+  if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
+
+  return (
+    <div className="h-screen flex flex-col bg-[#0A0A0B] text-zinc-100 overflow-hidden select-none">
+      {/* Header */}
+      <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#0D0D0E] border-b border-zinc-800/80">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-[0_0_16px_rgba(16,185,129,0.35)]">
+            <Shield className="w-5 h-5 text-black" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold leading-none tracking-tight">
+              Fortress <span className="text-emerald-400">Options</span>
+            </h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
+              <span className="text-[10px] text-zinc-500">
+                {isOnline ? 'Connected' : 'Offline'}
+                {status?.scanning && ' · Scanning…'}
+              </span>
+              {isOnline && (
+                <span className="text-[10px] text-zinc-600">
+                  · {status?.plays_available ?? 0} plays
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+        >
+          <Settings className="w-4.5 h-4.5 text-zinc-400" />
+        </button>
+      </header>
+
+      {/* Screen */}
+      <AnimatePresence mode="wait">
+        {tab === 'plays' && (
+          <motion.div key="plays" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+            <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onRefresh={handleScan} />
+          </motion.div>
+        )}
+        {tab === 'positions' && (
+          <motion.div key="positions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+            <PositionsScreen positions={positions} loading={loading} onRefresh={loadAll} onRecommend={setRecommendPos} onClose={setClosePos} />
+          </motion.div>
+        )}
+        {tab === 'history' && (
+          <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+            <HistoryScreen history={history} loading={loading} />
+          </motion.div>
+        )}
+        {tab === 'alerts' && (
+          <motion.div key="alerts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+            <AlertsScreen alerts={alerts} loading={loading} onAck={handleAck} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom Nav */}
+      <BottomNav tab={tab} setTab={setTab} alertCount={unreadAlerts} />
+
+      {/* Modals */}
+      <AnimatePresence>
+        {trackPlay && (
+          <TrackModal key="track" play={trackPlay} onConfirm={handleTrackConfirm} onClose={() => setTrackPlay(null)} />
+        )}
+        {recommendPos && (
+          <RecommendModal key="rec" position={recommendPos} onClose={() => setRecommendPos(null)} />
+        )}
+        {closePos && (
+          <CloseModal key="close" position={closePos} onConfirm={handleCloseConfirm} onClose={() => setClosePos(null)} />
+        )}
+        {showSettings && (
+          <SettingsModal key="settings" onClose={() => setShowSettings(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            initial={{ opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 60 }}
+            className="fixed bottom-24 left-4 right-4 z-50 bg-zinc-800 border border-zinc-700/60 rounded-2xl px-4 py-3 text-sm text-zinc-200 text-center shadow-2xl"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

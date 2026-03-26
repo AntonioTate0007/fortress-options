@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+
+# Node
+node_modules/
+dist/
+
+# Android build
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# APK outputs
+*.apk
+website/fortress-options.apk
+
+# Misc
+.DS_Store
+*.log
