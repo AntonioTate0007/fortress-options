@@ -880,6 +880,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </>
         )}
+
+        {/* Version footer */}
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.1.0</p>
       </div>
     </Modal>
   );
