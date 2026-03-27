@@ -417,7 +417,7 @@ def get_plays(sub: dict = Depends(require_api_key)):
     tier_symbols = TIERS.get(sub.get("tier", "basic"), TIERS["basic"])["symbols"]
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM plays WHERE is_active=1 ORDER BY score DESC, net_credit DESC"
+            "SELECT * FROM plays WHERE is_active=1 AND expiration >= date('now') ORDER BY score DESC, net_credit DESC"
         ).fetchall()
     plays = [dict(r) for r in rows]
     # Filter by tier (Basic only gets SPY/QQQ)
