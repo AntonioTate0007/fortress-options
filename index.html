@@ -91,7 +91,7 @@
 <a class="text-label text-sm font-medium text-[#75FF9E] border-b-2 border-[#75FF9E] pb-1" href="#">Platform</a>
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#">Strategies</a>
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#">Security</a>
-<a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#">Pricing</a>
+<a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#pricing">Pricing</a>
 </div>
 <div class="flex items-center gap-4">
 <button class="px-5 py-2 text-sm font-semibold text-[#BACBB9] hover:bg-[#2A2A2A] rounded-md transition-all duration-300 active:scale-95">Login</button>
@@ -309,6 +309,140 @@
 </div>
 </div>
 </section>
+<!-- Pricing Section -->
+<section id="pricing" class="py-24 px-6">
+<div class="max-w-6xl mx-auto">
+  <div class="text-center mb-16">
+    <h2 class="text-4xl md:text-6xl font-headline font-extrabold mb-4 tracking-tighter">Simple Pricing</h2>
+    <p class="text-on-surface-variant text-lg">Start free. Upgrade when you're ready. Cancel anytime.</p>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6">
+    <!-- Basic -->
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container p-8 flex flex-col">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Basic</span>
+        <div class="mt-2 flex items-end gap-1">
+          <span class="text-5xl font-extrabold font-headline">$29</span>
+          <span class="text-on-surface-variant mb-1">/mo</span>
+        </div>
+        <p class="text-on-surface-variant text-sm mt-2">SPY &amp; QQQ plays only</p>
+      </div>
+      <ul class="space-y-3 mb-8 flex-1 text-sm">
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>SPY &amp; QQQ credit spreads</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Real-time scoring</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>API key via email</li>
+        <li class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-base">remove</span>Earnings plays</li>
+        <li class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-base">remove</span>Telegram alerts</li>
+      </ul>
+      <button onclick="startCheckout('basic')" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Get Started</button>
+    </div>
+    <!-- Pro (highlighted) -->
+    <div class="rounded-2xl border-2 border-primary bg-surface-container p-8 flex flex-col relative shadow-[0_0_40px_rgba(117,255,158,0.1)]">
+      <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-on-primary text-xs font-bold px-4 py-1 rounded-full uppercase tracking-widest">Most Popular</div>
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-widest text-primary">Pro</span>
+        <div class="mt-2 flex items-end gap-1">
+          <span class="text-5xl font-extrabold font-headline">$59</span>
+          <span class="text-on-surface-variant mb-1">/mo</span>
+        </div>
+        <p class="text-on-surface-variant text-sm mt-2">Full watchlist + earnings plays</p>
+      </div>
+      <ul class="space-y-3 mb-8 flex-1 text-sm">
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>All Basic symbols</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>AAPL, AMZN, MSFT, GOOGL</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Earnings plays</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Real-time scoring</li>
+        <li class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-base">remove</span>Telegram alerts</li>
+      </ul>
+      <button onclick="startCheckout('pro')" class="w-full py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all shadow-[0_8px_20px_rgba(117,255,158,0.2)]">Subscribe — $59/mo</button>
+    </div>
+    <!-- Elite -->
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container p-8 flex flex-col">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Elite</span>
+        <div class="mt-2 flex items-end gap-1">
+          <span class="text-5xl font-extrabold font-headline">$99</span>
+          <span class="text-on-surface-variant mb-1">/mo</span>
+        </div>
+        <p class="text-on-surface-variant text-sm mt-2">Full access + Telegram alerts</p>
+      </div>
+      <ul class="space-y-3 mb-8 flex-1 text-sm">
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Everything in Pro</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Live Telegram push alerts</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Priority support</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Early feature access</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Earnings plays</li>
+      </ul>
+      <button onclick="startCheckout('elite')" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Go Elite</button>
+    </div>
+  </div>
+  <p class="text-center text-on-surface-variant text-sm mt-8">3-day free trial on all plans · No charge until day 4 · Cancel anytime</p>
+</div>
+</section>
+
+<!-- Checkout Modal -->
+<div id="checkout-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(0,0,0,0.7)">
+  <div class="bg-surface-container rounded-2xl p-8 w-full max-w-md border border-outline-variant/30">
+    <h3 class="text-2xl font-bold mb-2">Start your free trial</h3>
+    <p class="text-on-surface-variant text-sm mb-6">Your API key will be emailed to you after payment. 3 days free — no charge until day 4.</p>
+    <input id="checkout-email" type="email" placeholder="your@email.com" class="w-full bg-surface-container-highest border border-outline-variant/40 rounded-xl px-4 py-3 text-on-surface placeholder-on-surface-variant mb-4 focus:outline-none focus:border-primary"/>
+    <button id="checkout-submit" class="w-full py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all">Continue to Payment</button>
+    <button onclick="closeCheckout()" class="w-full py-2 mt-2 text-on-surface-variant text-sm hover:text-on-surface transition-colors">Cancel</button>
+  </div>
+</div>
+
+<script>
+  const API = 'https://fortress-options.onrender.com';
+  let selectedTier = '';
+
+  function startCheckout(tier) {
+    selectedTier = tier;
+    document.getElementById('checkout-modal').style.display = 'flex';
+    document.getElementById('checkout-email').focus();
+  }
+  function closeCheckout() {
+    document.getElementById('checkout-modal').style.display = 'none';
+    document.getElementById('checkout-email').value = '';
+  }
+  document.getElementById('checkout-submit').addEventListener('click', async () => {
+    const email = document.getElementById('checkout-email').value.trim();
+    if (!email || !email.includes('@')) { alert('Please enter a valid email.'); return; }
+    const btn = document.getElementById('checkout-submit');
+    btn.textContent = 'Redirecting...';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API}/api/stripe/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          tier: selectedTier,
+          success_url: window.location.origin + window.location.pathname + '?payment=success',
+          cancel_url: window.location.origin + window.location.pathname + '#pricing'
+        })
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error(data.detail || 'Unknown error');
+      }
+    } catch(e) {
+      alert('Error: ' + e.message);
+      btn.textContent = 'Continue to Payment';
+      btn.disabled = false;
+    }
+  });
+  // Show success banner if redirected back after payment
+  if (window.location.search.includes('payment=success')) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100;background:#00e475;color:#003918;text-align:center;padding:14px;font-weight:700;font-size:15px;';
+    banner.textContent = '🎉 Payment successful! Check your email for your API key.';
+    document.body.prepend(banner);
+    setTimeout(() => banner.remove(), 8000);
+  }
+</script>
+
 <!-- CTA Section -->
 <section class="py-32 px-8">
 <div class="max-w-5xl mx-auto rounded-[2rem] bg-gradient-to-br from-surface-container-high to-surface-container-low border border-outline-variant/20 p-12 md:p-24 text-center relative overflow-hidden">
