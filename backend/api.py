@@ -33,7 +33,7 @@ from db import get_db, init_db
 from ranker import get_exit_recommendation, score_play
 from auth import (require_api_key, optional_api_key, create_subscriber,
                   cancel_subscriber, send_api_key_email, create_checkout_session,
-                  STRIPE_WEBHOOK_SECRET, TIERS)
+                  send_blast_email, STRIPE_WEBHOOK_SECRET, TIERS)
 from telegram_bot import start_polling_thread, send_elite_alert
 
 # ─── Config ──────────────────────────────────────────────────────────────────
@@ -407,6 +407,53 @@ def list_subscribers(admin_key: str = ""):
             "SELECT id, email, tier, status, created_at FROM subscribers ORDER BY created_at DESC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+class BlastRequest(BaseModel):
+    admin_key: str
+    subject: str
+    version: str = ""
+    message: str = ""
+    apk_url: str = "https://github.com/AntonioTate0007/fortress-options/releases/latest/download/fortress-options.apk"
+
+
+@app.post("/api/admin/blast")
+def blast_email(req: BlastRequest):
+    """Admin: send update announcement to all active subscribers."""
+    if req.admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT email FROM subscribers WHERE status='active'"
+        ).fetchall()
+
+    emails = [r["email"] for r in rows]
+    if not emails:
+        return {"sent": 0, "failed": 0, "message": "No active subscribers"}
+
+    version_line = f"<p style='font-size:13px;color:#a1a1aa'>Version: <strong style='color:#10B981'>{req.version}</strong></p>" if req.version else ""
+    message_line = f"<p>{req.message}</p>" if req.message else ""
+
+    html = f"""
+    <div style="font-family:monospace;background:#0A0A0B;color:#e4e4e7;padding:32px;border-radius:12px;max-width:540px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+        <div style="width:40px;height:40px;background:#10B981;border-radius:10px;font-size:20px;display:flex;align-items:center;justify-content:center">🏰</div>
+        <h2 style="margin:0;color:#10B981">Fortress Options</h2>
+      </div>
+      <h3 style="color:#e4e4e7;margin:0 0 12px">{req.subject}</h3>
+      {version_line}
+      {message_line}
+      <div style="margin:24px 0">
+        <a href="{req.apk_url}" style="background:#10B981;color:#003918;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">⬇ Download Update</a>
+      </div>
+      <hr style="border-color:#27272a;margin:24px 0">
+      <p style="font-size:12px;color:#52525b">You're receiving this because you're a Fortress Options subscriber. Reply to unsubscribe.</p>
+    </div>
+    """
+
+    result = send_blast_email(emails, req.subject, html)
+    return {**result, "total_subscribers": len(emails)}
 
 
 # ─── Protected Play Routes ───────────────────────────────────────────────────

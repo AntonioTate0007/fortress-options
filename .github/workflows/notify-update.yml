@@ -1,0 +1,21 @@
+name: Notify Subscribers on New Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send update blast email
+        run: |
+          curl -s -X POST "https://fortress-options.onrender.com/api/admin/blast" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "admin_key": "${{ secrets.ADMIN_KEY }}",
+              "subject": "🏰 Fortress Options ${{ github.event.release.tag_name }} is out!",
+              "version": "${{ github.event.release.tag_name }}",
+              "message": "${{ github.event.release.body }}",
+              "apk_url": "https://github.com/AntonioTate0007/fortress-options/releases/download/${{ github.event.release.tag_name }}/fortress-options.apk"
+            }' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Sent: {d.get(\"sent\")}, Failed: {d.get(\"failed\")}, Total: {d.get(\"total_subscribers\")}')"

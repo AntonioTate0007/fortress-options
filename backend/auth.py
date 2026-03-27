@@ -189,3 +189,39 @@ def send_api_key_email(email: str, api_key: str, tier: str):
         print(f"API key emailed to {email}")
     except Exception as e:
         print(f"Email failed ({e}). Key for {email}: {api_key}")
+
+
+def send_blast_email(emails: list, subject: str, body_html: str) -> dict:
+    """Send a broadcast email to a list of addresses. Returns {sent, failed}."""
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+
+    if not smtp_user or not smtp_pass:
+        print("SMTP not configured — blast email skipped")
+        return {"sent": 0, "failed": len(emails)}
+
+    sent, failed = 0, 0
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            for email in emails:
+                try:
+                    msg = MIMEMultipart("alternative")
+                    msg["Subject"] = subject
+                    msg["From"] = f"Fortress Options <{smtp_user}>"
+                    msg["To"] = email
+                    msg.attach(MIMEText(body_html, "html"))
+                    server.sendmail(smtp_user, email, msg.as_string())
+                    sent += 1
+                    print(f"Blast sent to {email}")
+                except Exception as e:
+                    print(f"Blast failed for {email}: {e}")
+                    failed += 1
+    except Exception as e:
+        print(f"Blast SMTP connection failed: {e}")
+        failed = len(emails)
+
+    return {"sent": sent, "failed": failed}
