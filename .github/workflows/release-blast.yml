@@ -1,0 +1,21 @@
+name: Release Email Blast
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  blast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send update email to all subscribers
+        run: |
+          curl -s -X POST "https://fortress-options.onrender.com/api/admin/blast" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "admin_key": "${{ secrets.ADMIN_KEY }}",
+              "subject": "Fortress Options ${{ github.event.release.tag_name }} is out!",
+              "version": "${{ github.event.release.tag_name }}",
+              "message": ${{ toJSON(github.event.release.body) }},
+              "apk_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/fortress-options.apk"
+            }'
