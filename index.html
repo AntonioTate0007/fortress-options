@@ -411,7 +411,7 @@
     btn.textContent = 'Redirecting...';
     btn.disabled = true;
     try {
-      const res = await fetch(`${API}/api/stripe/checkout`, {
+      const res = await fetch(`${API}/api/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
