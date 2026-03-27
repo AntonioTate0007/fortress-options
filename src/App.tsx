@@ -87,7 +87,7 @@ type Tab = 'plays' | 'positions' | 'history' | 'alerts';
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 function getBase(): string {
-  return localStorage.getItem('fortress_server') || 'http://100.98.20.112:8001';
+  return localStorage.getItem('fortress_server') || 'https://fortress-options.onrender.com';
 }
 
 function getApiKey(): string {
@@ -692,7 +692,7 @@ function CloseModal({
 // ─── Settings Modal ───────────────────────────────────────────────────────────
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [url, setUrl] = useState(localStorage.getItem('fortress_server') || 'http://100.98.20.112:8001');
+  const [url, setUrl] = useState(localStorage.getItem('fortress_server') || 'https://fortress-options.onrender.com');
   const [apiKey, setApiKey] = useState(localStorage.getItem('fortress_api_key') || '');
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
