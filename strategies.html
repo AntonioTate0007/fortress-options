@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Strategies | Fortress Options</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "on-tertiary-fixed": "#2d1600",
+          "on-primary-fixed-variant": "#005226",
+          "background": "#131313",
+          "surface-variant": "#353534",
+          "primary": "#75ff9e",
+          "on-error-container": "#ffdad6",
+          "surface-dim": "#131313",
+          "surface-container-highest": "#353534",
+          "on-error": "#690005",
+          "on-secondary": "#002d6e",
+          "on-tertiary": "#4b2800",
+          "primary-fixed-dim": "#00e475",
+          "on-primary-container": "#00612e",
+          "on-secondary-fixed-variant": "#00429b",
+          "tertiary-fixed-dim": "#fdb878",
+          "on-primary": "#003918",
+          "secondary-fixed": "#d9e2ff",
+          "surface-container-lowest": "#0e0e0e",
+          "surface": "#131313",
+          "error-container": "#93000a",
+          "surface-container-low": "#1c1b1b",
+          "secondary-fixed-dim": "#b0c6ff",
+          "secondary-container": "#0068ed",
+          "surface-container": "#201f1f",
+          "tertiary": "#ffdec4",
+          "surface-tint": "#00e475",
+          "on-secondary-container": "#f2f3ff",
+          "on-primary-fixed": "#00210b",
+          "inverse-on-surface": "#313030",
+          "on-tertiary-container": "#794810",
+          "inverse-primary": "#006d35",
+          "inverse-surface": "#e5e2e1",
+          "surface-container-high": "#2a2a2a",
+          "tertiary-fixed": "#ffdcbf",
+          "on-surface": "#e5e2e1",
+          "secondary": "#b0c6ff",
+          "outline-variant": "#3b4a3d",
+          "outline": "#859585",
+          "surface-bright": "#393939",
+          "on-background": "#e5e2e1",
+          "error": "#ffb4ab",
+          "on-secondary-fixed": "#001945",
+          "on-tertiary-fixed-variant": "#6a3c03",
+          "primary-container": "#00e676",
+          "on-surface-variant": "#bacbb9",
+          "tertiary-container": "#ffba79",
+          "primary-fixed": "#62ff96"
+        },
+        fontFamily: {
+          "headline": ["Manrope"],
+          "body": ["Inter"],
+          "label": ["Inter"]
+        },
+        borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; }
+  .font-headline { font-family: 'Manrope', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(32, 31, 31, 0.6); backdrop-filter: blur(20px); }
+  .glow-primary { box-shadow: 0 0 20px rgba(117, 255, 158, 0.15); }
+  .hero-gradient { background: radial-gradient(circle at 50% 50%, rgba(0, 230, 118, 0.05) 0%, transparent 70%); }
+</style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
+
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#0E0E0E]">
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
+  <div class="text-2xl font-bold tracking-tighter text-[#E5E2E1] font-headline"><a href="index.html">Fortress Options</a></div>
+  <div class="hidden md:flex items-center gap-8">
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="index.html">Platform</a>
+    <a class="text-label text-sm font-medium text-[#75FF9E] border-b-2 border-[#75FF9E] pb-1" href="strategies.html">Strategies</a>
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="index.html#pricing">Pricing</a>
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="support.html">Support</a>
+  </div>
+  <div class="flex items-center gap-4">
+    <a href="https://github.com/AntonioTate0007/fortress-options/releases/latest/download/fortress-options.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+  </div>
+</nav>
+</header>
+
+<main class="pt-24">
+
+  <!-- Hero Section -->
+  <section class="relative min-h-[480px] flex flex-col items-center justify-center text-center px-6 hero-gradient">
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px]"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-[120px]"></div>
+    <div class="relative z-10 max-w-4xl">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-high border border-outline-variant/20 mb-8">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        <span class="text-xs font-medium tracking-widest uppercase text-on-surface-variant">Strategy Breakdown</span>
+      </div>
+      <h1 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-tight mb-6">
+        Trade Smarter.<br/> <span class="text-primary">Not Harder.</span>
+      </h1>
+      <p class="text-on-surface-variant text-lg md:text-xl max-w-2xl mx-auto font-body leading-relaxed">
+        Fortress scans the market so you don't have to. Every play is scored, ranked, and ready to execute.
+      </p>
+    </div>
+  </section>
+
+  <!-- Section 1: The Strategy -->
+  <section class="py-24 px-6 max-w-7xl mx-auto">
+    <div class="text-center mb-16">
+      <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">The Strategy</span>
+      <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">Bull Put Credit Spreads</h2>
+      <p class="text-on-surface-variant mt-4 max-w-2xl mx-auto">A defined-risk options strategy that collects premium and profits when the market stays steady or moves up.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-10 items-start">
+      <!-- Text explanation -->
+      <div class="space-y-6">
+        <div class="flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl">sell</span>
+          </div>
+          <div>
+            <h3 class="font-semibold text-[#E5E2E1] mb-1">Sell an OTM Put</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">Sell a put option below the current stock price (out-of-the-money). You collect premium immediately for taking on the obligation.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl">shield</span>
+          </div>
+          <div>
+            <h3 class="font-semibold text-[#E5E2E1] mb-1">Buy a Lower Put for Protection</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">Buy a put at an even lower strike. This caps your maximum loss and defines your total risk — no surprises.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl">payments</span>
+          </div>
+          <div>
+            <h3 class="font-semibold text-[#E5E2E1] mb-1">Collect the Net Credit</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">The difference between what you sold and what you paid is yours to keep as long as the stock stays above your short strike at expiration.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl">trending_up</span>
+          </div>
+          <div>
+            <h3 class="font-semibold text-[#E5E2E1] mb-1">Profit if the Stock Stays Above the Short Strike</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">You don't need the stock to go up — you just need it not to fall too far. Bullish bias, but with a built-in buffer.</p>
+          </div>
+        </div>
+
+        <!-- Max P&L summary -->
+        <div class="mt-6 grid grid-cols-2 gap-4">
+          <div class="rounded-2xl p-5 border border-primary/20 bg-primary/5">
+            <div class="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Max Profit</div>
+            <div class="font-headline text-2xl font-bold text-[#E5E2E1]">Net Credit</div>
+            <div class="text-on-surface-variant text-sm mt-1">Collected upfront when you open the trade</div>
+          </div>
+          <div class="rounded-2xl p-5 border border-[#353534] bg-[#201F1F]">
+            <div class="text-xs uppercase tracking-widest text-[#BACBB9] font-semibold mb-2">Max Loss</div>
+            <div class="font-headline text-2xl font-bold text-[#E5E2E1]">Spread − Credit</div>
+            <div class="text-on-surface-variant text-sm mt-1">Defined and capped — you always know your worst case</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual diagram card -->
+      <div class="rounded-2xl border border-[#353534] overflow-hidden" style="background: rgba(32,31,31,0.6);">
+        <div class="px-6 py-4 border-b border-[#353534] flex items-center gap-3">
+          <span class="w-3 h-3 rounded-full bg-primary"></span>
+          <span class="font-semibold text-[#E5E2E1] text-sm font-headline">Example: SPY at $500</span>
+        </div>
+        <div class="p-6 space-y-4">
+          <!-- Price levels diagram -->
+          <div class="relative">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="flex-1">
+                <!-- Current price line -->
+                <div class="relative mb-8">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs text-on-surface-variant">SPY Current Price</span>
+                    <span class="font-bold text-[#E5E2E1] font-headline">$500</span>
+                  </div>
+                  <div class="h-1 w-full bg-[#353534] rounded-full relative">
+                    <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#E5E2E1] border-2 border-[#131313]"></div>
+                  </div>
+                </div>
+
+                <!-- Buffer zone -->
+                <div class="relative mb-2">
+                  <div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-primary/70 whitespace-nowrap">← 8% buffer zone →</div>
+                  <div class="h-12 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center mb-2">
+                    <span class="text-xs text-primary/60 font-medium">Safety Cushion — stock must fall 8% to hit short strike</span>
+                  </div>
+                </div>
+
+                <!-- Short strike -->
+                <div class="relative mb-4">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs text-on-surface-variant">Short Put (Sell) <span class="text-primary font-semibold">← Collect $0.38</span></span>
+                    <span class="font-bold text-[#E5E2E1] font-headline">$460</span>
+                  </div>
+                  <div class="h-1 w-full rounded-full" style="background: linear-gradient(90deg, #75ff9e 0%, #75ff9e 60%, #353534 60%);">
+                    <div class="relative">
+                      <div class="absolute left-[60%] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-[#131313]" style="margin-top:-6px;"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Spread width -->
+                <div class="h-10 border-l-2 border-r-2 border-dashed border-[#353534] mx-4 flex items-center justify-center">
+                  <span class="text-xs text-on-surface-variant bg-[#131313] px-2">$5 wide spread</span>
+                </div>
+
+                <!-- Long strike -->
+                <div class="relative mt-4">
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs text-on-surface-variant">Long Put (Buy) <span class="text-[#BACBB9]">← Protection floor</span></span>
+                    <span class="font-bold text-[#E5E2E1] font-headline">$455</span>
+                  </div>
+                  <div class="h-1 w-full bg-[#353534] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- P&L summary -->
+          <div class="border-t border-[#353534] pt-4 grid grid-cols-3 gap-3">
+            <div class="text-center">
+              <div class="text-xs text-on-surface-variant mb-1">Credit Collected</div>
+              <div class="font-headline font-bold text-primary text-lg">$38</div>
+              <div class="text-xs text-on-surface-variant">per contract</div>
+            </div>
+            <div class="text-center">
+              <div class="text-xs text-on-surface-variant mb-1">Max Risk</div>
+              <div class="font-headline font-bold text-[#E5E2E1] text-lg">$462</div>
+              <div class="text-xs text-on-surface-variant">per contract</div>
+            </div>
+            <div class="text-center">
+              <div class="text-xs text-on-surface-variant mb-1">Return on Risk</div>
+              <div class="font-headline font-bold text-primary text-lg">8.2%</div>
+              <div class="text-xs text-on-surface-variant">if held to expiry</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: How Fortress Scans -->
+  <section class="py-24 px-6 bg-[#0E0E0E]">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16">
+        <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">The Scanner</span>
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">How Fortress Scans</h2>
+        <p class="text-on-surface-variant mt-4 max-w-2xl mx-auto">Three filters. Hundreds of possibilities narrowed down to only the plays where every number lines up.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Card 1 -->
+        <div class="rounded-2xl p-8 border border-[#353534] hover:border-primary/30 transition-all duration-300 group" style="background: rgba(32,31,31,0.6);">
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">🎯</span>
+          </div>
+          <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">7–14 DTE</h3>
+          <p class="text-on-surface-variant leading-relaxed">The sweet spot for theta decay — time works for you every single day. Options lose value faster in this window, padding your profit as each day passes.</p>
+          <div class="mt-6 pt-4 border-t border-[#353534]">
+            <span class="text-xs text-primary font-semibold tracking-widest uppercase">Days to Expiration</span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="rounded-2xl p-8 border border-[#353534] hover:border-primary/30 transition-all duration-300 group" style="background: rgba(32,31,31,0.6);">
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">🛡️</span>
+          </div>
+          <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">5–8% OTM Buffer</h3>
+          <p class="text-on-surface-variant leading-relaxed">The short strike is placed well below the current price — built-in protection against normal market volatility. The stock has room to breathe before you're in trouble.</p>
+          <div class="mt-6 pt-4 border-t border-[#353534]">
+            <span class="text-xs text-primary font-semibold tracking-widest uppercase">Downside Buffer</span>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="rounded-2xl p-8 border border-[#353534] hover:border-primary/30 transition-all duration-300 group" style="background: rgba(32,31,31,0.6);">
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">💰</span>
+          </div>
+          <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">$0.35–$0.80 Net Credit</h3>
+          <p class="text-on-surface-variant leading-relaxed">Only shows plays where the math makes sense. Minimum credit ensures your return on risk is worth taking, and the cap keeps expectations realistic.</p>
+          <div class="mt-6 pt-4 border-t border-[#353534]">
+            <span class="text-xs text-primary font-semibold tracking-widest uppercase">Premium Range</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Scoring System -->
+  <section class="py-24 px-6 max-w-7xl mx-auto">
+    <div class="text-center mb-16">
+      <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">The Algorithm</span>
+      <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">The Scoring System</h2>
+      <p class="text-on-surface-variant mt-4 max-w-2xl mx-auto">Every play gets a score from 1–10. Five factors, each weighted by how much they impact real-world outcomes.</p>
+    </div>
+
+    <div class="space-y-4 max-w-3xl mx-auto">
+
+      <!-- Factor 1 -->
+      <div class="rounded-2xl p-6 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">1</span>
+            <div>
+              <div class="font-semibold text-[#E5E2E1]">Buffer %</div>
+              <div class="text-xs text-on-surface-variant">How far OTM is the short strike</div>
+            </div>
+          </div>
+          <span class="font-headline font-bold text-primary text-xl">30%</span>
+        </div>
+        <div class="w-full h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 30%"></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2">The most important factor — a wider buffer means lower probability of max loss.</p>
+      </div>
+
+      <!-- Factor 2 -->
+      <div class="rounded-2xl p-6 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">2</span>
+            <div>
+              <div class="font-semibold text-[#E5E2E1]">Return on Risk</div>
+              <div class="text-xs text-on-surface-variant">Net credit ÷ max risk</div>
+            </div>
+          </div>
+          <span class="font-headline font-bold text-primary text-xl">25%</span>
+        </div>
+        <div class="w-full h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 25%"></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2">Higher return on risk means you need fewer wins to stay profitable long-term.</p>
+      </div>
+
+      <!-- Factor 3 -->
+      <div class="rounded-2xl p-6 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">3</span>
+            <div>
+              <div class="font-semibold text-[#E5E2E1]">DTE</div>
+              <div class="text-xs text-on-surface-variant">Closer to 10 days = better theta decay</div>
+            </div>
+          </div>
+          <span class="font-headline font-bold text-primary text-xl">20%</span>
+        </div>
+        <div class="w-full h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 20%"></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2">The optimal DTE window maximizes theta while minimizing gamma risk near expiry.</p>
+      </div>
+
+      <!-- Factor 4 -->
+      <div class="rounded-2xl p-6 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">4</span>
+            <div>
+              <div class="font-semibold text-[#E5E2E1]">Liquidity</div>
+              <div class="text-xs text-on-surface-variant">Volume + open interest</div>
+            </div>
+          </div>
+          <span class="font-headline font-bold text-primary text-xl">15%</span>
+        </div>
+        <div class="w-full h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 15%"></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2">Liquid options mean tighter spreads and easier fills — critical for getting your price.</p>
+      </div>
+
+      <!-- Factor 5 -->
+      <div class="rounded-2xl p-6 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">5</span>
+            <div>
+              <div class="font-semibold text-[#E5E2E1]">Implied Volatility</div>
+              <div class="text-xs text-on-surface-variant">Higher IV = more premium</div>
+            </div>
+          </div>
+          <span class="font-headline font-bold text-primary text-xl">10%</span>
+        </div>
+        <div class="w-full h-2 bg-[#353534] rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full" style="width: 10%"></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-2">Elevated IV inflates option prices, giving you more credit to collect on the same trade structure.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Section 4: Risk Management -->
+  <section class="py-24 px-6 bg-[#0E0E0E]">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16">
+        <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">Discipline</span>
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">Risk Management</h2>
+        <p class="text-on-surface-variant mt-4 max-w-2xl mx-auto">Finding great trades is only half the game. These three rules are what keep you in it for the long run.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Rule 1 -->
+        <div class="rounded-2xl p-8 border border-[#353534] relative overflow-hidden" style="background: rgba(32,31,31,0.6);">
+          <div class="absolute top-6 right-6 font-headline text-7xl font-extrabold text-primary/5 select-none leading-none">1</div>
+          <div class="relative z-10">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-primary">target</span>
+            </div>
+            <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">50% Profit Target</h3>
+            <p class="text-on-surface-variant leading-relaxed">Close the trade when you've captured half the max profit. Don't get greedy — taking 50% faster frees capital for the next opportunity and drastically improves your win rate.</p>
+          </div>
+        </div>
+
+        <!-- Rule 2 -->
+        <div class="rounded-2xl p-8 border border-[#353534] relative overflow-hidden" style="background: rgba(32,31,31,0.6);">
+          <div class="absolute top-6 right-6 font-headline text-7xl font-extrabold text-primary/5 select-none leading-none">2</div>
+          <div class="relative z-10">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-primary">warning</span>
+            </div>
+            <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">2x Stop Loss</h3>
+            <p class="text-on-surface-variant leading-relaxed">If the spread doubles in value against you, exit. Protect your capital. One bad loss that could have been cut at 2x is the same as multiple wins wiped out. The market will recover — make sure you're still in it.</p>
+          </div>
+        </div>
+
+        <!-- Rule 3 -->
+        <div class="rounded-2xl p-8 border border-[#353534] relative overflow-hidden" style="background: rgba(32,31,31,0.6);">
+          <div class="absolute top-6 right-6 font-headline text-7xl font-extrabold text-primary/5 select-none leading-none">3</div>
+          <div class="relative z-10">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-primary">balance</span>
+            </div>
+            <h3 class="font-headline text-xl font-bold text-[#E5E2E1] mb-3">Size Appropriately</h3>
+            <p class="text-on-surface-variant leading-relaxed">Never risk more than 2–5% of your account on a single trade. Position sizing is the most overlooked edge in options trading. Consistent, small risk keeps you in the game through losing streaks.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-24 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <div class="rounded-2xl p-12 border border-primary/20 relative overflow-hidden" style="background: rgba(32,31,31,0.6);">
+        <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+        <div class="relative z-10">
+          <h2 class="font-headline text-4xl font-extrabold tracking-tighter text-[#E5E2E1] mb-4">Start Getting Ranked Plays</h2>
+          <p class="text-on-surface-variant mb-8 text-lg">Every scan delivers only the plays that meet every threshold — scored, ranked, and ready to execute on your phone.</p>
+          <a href="index.html#pricing" class="inline-flex items-center gap-2 px-10 py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl hover:opacity-90 transition-all active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)] text-lg">
+            <span class="material-symbols-outlined">bolt</span>
+            View Pricing Plans
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="border-t border-[#353534] py-12 px-6">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="font-headline font-bold text-[#E5E2E1] text-lg tracking-tighter">Fortress Options</div>
+    <div class="flex items-center gap-6 text-sm text-on-surface-variant">
+      <a href="index.html" class="hover:text-[#E5E2E1] transition-colors">Platform</a>
+      <a href="strategies.html" class="hover:text-[#E5E2E1] transition-colors">Strategies</a>
+      <a href="index.html#pricing" class="hover:text-[#E5E2E1] transition-colors">Pricing</a>
+      <a href="support.html" class="hover:text-[#E5E2E1] transition-colors">Support</a>
+    </div>
+    <div class="text-xs text-on-surface-variant">© 2025 Fortress Options. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>
