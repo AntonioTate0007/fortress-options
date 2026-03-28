@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fortress-options
+    runtime: python
+    buildCommand: "pip install -r requirements.txt && npm ci && npm run build"
+    startCommand: uvicorn backend.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DB_PATH
+        value: /data/fortress.db
+      - key: PORT
+        value: 8000
+    disk:
+      name: fortress-db
+      mountPath: /data
+      sizeGB: 1
