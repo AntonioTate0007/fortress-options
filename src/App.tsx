@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import {
   Shield, RefreshCw, Settings, Bell, TrendingUp,
   AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
@@ -876,141 +877,289 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Lock Screen ─────────────────────────────────────────────────────────────
+// ─── Shared auth helpers ──────────────────────────────────────────────────────
 
-function LockScreen({ onUnlock }: { onUnlock: () => void }) {
-  const isFirstSetup = !localStorage.getItem('fortress_pin');
-  const [mode, setMode] = useState<'setup' | 'setup-confirm' | 'unlock'>(
-    isFirstSetup ? 'setup' : 'unlock'
+async function checkBiometryAvailable(): Promise<boolean> {
+  try {
+    const result = await BiometricAuth.checkBiometry();
+    return result.isAvailable === true;
+  } catch {
+    return false;
+  }
+}
+
+async function promptBiometric(): Promise<boolean> {
+  try {
+    await BiometricAuth.authenticate({
+      reason: 'Unlock Fortress Options',
+      cancelTitle: 'Use PIN',
+      fallbackTitle: 'Use PIN',
+      allowDeviceCredential: false,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Shared PIN numpad ────────────────────────────────────────────────────────
+
+function PinDots({ count }: { count: number }) {
+  return (
+    <div className="flex gap-4">
+      {[0, 1, 2, 3].map(i => (
+        <div
+          key={i}
+          className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
+            i < count ? 'bg-emerald-500 border-emerald-500 scale-110' : 'border-zinc-600'
+          }`}
+        />
+      ))}
+    </div>
   );
-  const [setupPin, setSetupPin] = useState('');
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  const [biometryAvailable, setBiometryAvailable] = useState(false);
+}
 
+function Numpad({ onDigit, onBackspace }: { onDigit: (d: string) => void; onBackspace: () => void }) {
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  return (
+    <div className="grid grid-cols-3 gap-3 w-64">
+      {keys.map((k, i) =>
+        k === '' ? (
+          <div key={i} />
+        ) : (
+          <button
+            key={i}
+            onClick={() => (k === '⌫' ? onBackspace() : onDigit(k))}
+            className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl text-white text-xl font-semibold transition-colors border border-zinc-800"
+          >
+            {k}
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+// ─── Setup Wizard (first install) ────────────────────────────────────────────
+
+function SetupWizard({ onDone }: { onDone: () => void }) {
+  type Step = 'create' | 'confirm' | 'biometric';
+  const [step, setStep]         = useState<Step>('create');
+  const [pin, setPin]           = useState('');
+  const [confirm, setConfirm]   = useState('');
+  const [error, setError]       = useState('');
+  const [bioAvail, setBioAvail] = useState(false);
+
+  // check biometry once so we know whether to show step 3
   useEffect(() => {
-    if (mode !== 'unlock') return;
-    try {
-      // @ts-ignore
-      if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
-        setBiometryAvailable(true);
-        triggerBiometric();
-      }
-    } catch {}
-  }, [mode]);
-
-  const triggerBiometric = async () => {
-    try {
-      // @ts-ignore
-      const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
-      await BiometricAuth.authenticate({
-        reason: 'Unlock Fortress Options',
-        cancelTitle: 'Use PIN',
-        fallbackTitle: 'Use PIN',
-      });
-      onUnlock();
-    } catch {}
-  };
+    checkBiometryAvailable().then(setBioAvail);
+  }, []);
 
   const handleDigit = (d: string) => {
-    if (mode === 'setup') {
-      const next = setupPin + d;
-      setSetupPin(next);
-      setError('');
-      if (next.length === 4) {
-        setTimeout(() => { setMode('setup-confirm'); setPin(''); setError(''); }, 150);
-      }
-    } else if (mode === 'setup-confirm') {
+    setError('');
+    if (step === 'create') {
       const next = pin + d;
       setPin(next);
-      setError('');
+      if (next.length === 4) setTimeout(() => setStep('confirm'), 180);
+    } else if (step === 'confirm') {
+      const next = confirm + d;
+      setConfirm(next);
       if (next.length === 4) {
-        if (next === setupPin) {
+        if (next === pin) {
           localStorage.setItem('fortress_pin', next);
-          onUnlock();
+          if (bioAvail) {
+            setTimeout(() => setStep('biometric'), 180);
+          } else {
+            onDone();
+          }
         } else {
           setError('PINs do not match — try again');
-          setSetupPin('');
           setPin('');
-          setTimeout(() => setMode('setup'), 800);
-        }
-      }
-    } else {
-      const savedPin = localStorage.getItem('fortress_pin') || '';
-      const next = pin + d;
-      setPin(next);
-      setError('');
-      if (next.length === 4) {
-        if (next === savedPin) {
-          onUnlock();
-        } else {
-          setError('Incorrect PIN');
-          setPin('');
+          setConfirm('');
+          setTimeout(() => setStep('create'), 800);
         }
       }
     }
   };
 
   const handleBackspace = () => {
-    if (mode === 'setup') setSetupPin(p => p.slice(0, -1));
-    else setPin(p => p.slice(0, -1));
+    setError('');
+    if (step === 'create') setPin(p => p.slice(0, -1));
+    else if (step === 'confirm') setConfirm(p => p.slice(0, -1));
   };
 
-  const currentLen = mode === 'setup' ? setupPin.length : pin.length;
-  const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  const enableBiometric = async () => {
+    const ok = await promptBiometric();
+    if (ok) {
+      localStorage.setItem('fortress_biometry', '1');
+    }
+    onDone();
+  };
 
-  const title = mode === 'setup'
-    ? 'Create Your PIN'
-    : mode === 'setup-confirm'
-    ? 'Confirm Your PIN'
-    : 'Fortress Options';
+  // ── Step 3: biometric offer ────────────────────────────────────────────────
+  if (step === 'biometric') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-6 px-8">
+        <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
+          <Fingerprint className="w-9 h-9 text-black" />
+        </div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white">Enable Fingerprint?</h1>
+          <p className="text-sm text-zinc-500 mt-2 max-w-xs">
+            Unlock the app instantly with your fingerprint instead of typing your PIN every time.
+          </p>
+        </div>
+        <button
+          onClick={enableBiometric}
+          className="w-64 py-4 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold rounded-2xl transition-colors"
+        >
+          Enable Fingerprint
+        </button>
+        <button
+          onClick={onDone}
+          className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+        >
+          Skip — use PIN only
+        </button>
+      </div>
+    );
+  }
 
-  const subtitle = mode === 'setup'
-    ? 'Choose a 4-digit PIN to secure your app'
-    : mode === 'setup-confirm'
-    ? 'Enter your PIN again to confirm'
-    : 'Enter PIN to continue';
+  // ── Steps 1 & 2: PIN creation ─────────────────────────────────────────────
+  const currentLen = step === 'create' ? pin.length : confirm.length;
+  const stepNum    = step === 'create' ? 1 : 2;
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
+      {/* Progress dots */}
+      <div className="flex gap-2 absolute top-14">
+        {[1, 2, ...(bioAvail ? [3] : [])].map(n => (
+          <div
+            key={n}
+            className={`w-2 h-2 rounded-full transition-all ${
+              n === stepNum ? 'bg-emerald-500 w-5' : n < stepNum ? 'bg-emerald-700' : 'bg-zinc-700'
+            }`}
+          />
+        ))}
+      </div>
+
+      <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
+        <Shield className="w-9 h-9 text-black" />
+      </div>
+
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-white">
+          {step === 'create' ? 'Create Your PIN' : 'Confirm Your PIN'}
+        </h1>
+        <p className="text-sm text-zinc-500 mt-1">
+          {step === 'create'
+            ? 'Choose a 4-digit PIN to secure your app'
+            : 'Enter your PIN again to confirm'}
+        </p>
+      </div>
+
+      <PinDots count={currentLen} />
+
+      {error ? (
+        <p className="text-red-400 text-sm -mt-4">{error}</p>
+      ) : (
+        <div className="h-5" />
+      )}
+
+      <Numpad onDigit={handleDigit} onBackspace={handleBackspace} />
+
+      <p className="text-xs text-zinc-600">
+        Step {stepNum} of {bioAvail ? 3 : 2}
+      </p>
+    </div>
+  );
+}
+
+// ─── Lock Screen (every open after setup) ────────────────────────────────────
+
+function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const [pin, setPin]                 = useState('');
+  const [error, setError]             = useState('');
+  const [bioEnabled]                  = useState(() => localStorage.getItem('fortress_biometry') === '1');
+  const [showingPinPad, setShowPinPad] = useState(!bioEnabled);
+
+  // auto-trigger biometric on mount if enrolled
+  useEffect(() => {
+    if (!bioEnabled) return;
+    triggerBiometric();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const triggerBiometric = async () => {
+    const ok = await promptBiometric();
+    if (ok) {
+      onUnlock();
+    } else {
+      setShowPinPad(true);
+    }
+  };
+
+  const handleDigit = (d: string) => {
+    const next = pin + d;
+    setPin(next);
+    setError('');
+    if (next.length === 4) {
+      const saved = localStorage.getItem('fortress_pin') || '';
+      if (next === saved) {
+        onUnlock();
+      } else {
+        setError('Incorrect PIN');
+        setPin('');
+      }
+    }
+  };
+
+  const handleBackspace = () => setPin(p => p.slice(0, -1));
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
       <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
         <Shield className="w-9 h-9 text-black" />
       </div>
-      <div>
-        <h1 className="text-2xl font-bold text-white text-center">{title}</h1>
-        <p className="text-sm text-zinc-500 text-center mt-1">{subtitle}</p>
+
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-white">Fortress Options</h1>
+        <p className="text-sm text-zinc-500 mt-1">
+          {showingPinPad ? 'Enter your PIN' : 'Verifying fingerprint…'}
+        </p>
       </div>
 
-      {/* PIN dots */}
-      <div className="flex gap-4">
-        {[0,1,2,3].map(i => (
-          <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
-            i < currentLen ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'
-          }`} />
-        ))}
-      </div>
+      {showingPinPad ? (
+        <>
+          <PinDots count={pin.length} />
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error ? (
+            <p className="text-red-400 text-sm -mt-4">{error}</p>
+          ) : (
+            <div className="h-5" />
+          )}
 
-      {/* Numpad */}
-      <div className="grid grid-cols-3 gap-3 w-64">
-        {digits.map((d, i) => (
-          d === '' ? <div key={i} /> :
+          <Numpad onDigit={handleDigit} onBackspace={handleBackspace} />
+
+          {bioEnabled && (
+            <button
+              onClick={triggerBiometric}
+              className="flex items-center gap-2 text-emerald-400 text-sm hover:text-emerald-300 transition-colors"
+            >
+              <Fingerprint className="w-5 h-5" />
+              Use fingerprint instead
+            </button>
+          )}
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <Fingerprint className="w-16 h-16 text-emerald-500 animate-pulse" />
           <button
-            key={i}
-            onClick={() => d === '⌫' ? handleBackspace() : handleDigit(d)}
-            className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl text-white text-xl font-semibold transition-colors border border-zinc-800"
+            onClick={() => setShowPinPad(true)}
+            className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
           >
-            {d}
+            Use PIN instead
           </button>
-        ))}
-      </div>
-
-      {mode === 'unlock' && biometryAvailable && (
-        <button onClick={triggerBiometric} className="flex items-center gap-2 text-emerald-400 text-sm">
-          <Fingerprint className="w-5 h-5" />
-          Use fingerprint
-        </button>
+        </div>
       )}
     </div>
   );
@@ -1404,6 +1553,11 @@ export default function App() {
 
   const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
   const isOnline = status?.status === 'online';
+
+  // First install: no PIN set yet → run setup wizard
+  if (!localStorage.getItem('fortress_pin')) {
+    return <SetupWizard onDone={() => setLocked(false)} />;
+  }
 
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
 
