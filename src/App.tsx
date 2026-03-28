@@ -870,7 +870,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.1.0</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.2.0</p>
       </div>
     </Modal>
   );
@@ -879,13 +879,17 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 // ─── Lock Screen ─────────────────────────────────────────────────────────────
 
 function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const isFirstSetup = !localStorage.getItem('fortress_pin');
+  const [mode, setMode] = useState<'setup' | 'setup-confirm' | 'unlock'>(
+    isFirstSetup ? 'setup' : 'unlock'
+  );
+  const [setupPin, setSetupPin] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [biometryAvailable, setBiometryAvailable] = useState(false);
-  const savedPin = localStorage.getItem('fortress_pin') || '1234';
 
   useEffect(() => {
-    // Check if Capacitor biometric plugin is available
+    if (mode !== 'unlock') return;
     try {
       // @ts-ignore
       if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
@@ -893,7 +897,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         triggerBiometric();
       }
     } catch {}
-  }, []);
+  }, [mode]);
 
   const triggerBiometric = async () => {
     try {
@@ -909,19 +913,63 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   };
 
   const handleDigit = (d: string) => {
-    const next = pin + d;
-    setPin(next);
-    if (next.length === 4) {
-      if (next === savedPin) {
-        onUnlock();
-      } else {
-        setError('Incorrect PIN');
-        setPin('');
+    if (mode === 'setup') {
+      const next = setupPin + d;
+      setSetupPin(next);
+      setError('');
+      if (next.length === 4) {
+        setTimeout(() => { setMode('setup-confirm'); setPin(''); setError(''); }, 150);
+      }
+    } else if (mode === 'setup-confirm') {
+      const next = pin + d;
+      setPin(next);
+      setError('');
+      if (next.length === 4) {
+        if (next === setupPin) {
+          localStorage.setItem('fortress_pin', next);
+          onUnlock();
+        } else {
+          setError('PINs do not match — try again');
+          setSetupPin('');
+          setPin('');
+          setTimeout(() => setMode('setup'), 800);
+        }
+      }
+    } else {
+      const savedPin = localStorage.getItem('fortress_pin') || '';
+      const next = pin + d;
+      setPin(next);
+      setError('');
+      if (next.length === 4) {
+        if (next === savedPin) {
+          onUnlock();
+        } else {
+          setError('Incorrect PIN');
+          setPin('');
+        }
       }
     }
   };
 
+  const handleBackspace = () => {
+    if (mode === 'setup') setSetupPin(p => p.slice(0, -1));
+    else setPin(p => p.slice(0, -1));
+  };
+
+  const currentLen = mode === 'setup' ? setupPin.length : pin.length;
   const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+
+  const title = mode === 'setup'
+    ? 'Create Your PIN'
+    : mode === 'setup-confirm'
+    ? 'Confirm Your PIN'
+    : 'Fortress Options';
+
+  const subtitle = mode === 'setup'
+    ? 'Choose a 4-digit PIN to secure your app'
+    : mode === 'setup-confirm'
+    ? 'Enter your PIN again to confirm'
+    : 'Enter PIN to continue';
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
@@ -929,15 +977,15 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         <Shield className="w-9 h-9 text-black" />
       </div>
       <div>
-        <h1 className="text-2xl font-bold text-white text-center">Fortress Options</h1>
-        <p className="text-sm text-zinc-500 text-center mt-1">Enter PIN to continue</p>
+        <h1 className="text-2xl font-bold text-white text-center">{title}</h1>
+        <p className="text-sm text-zinc-500 text-center mt-1">{subtitle}</p>
       </div>
 
       {/* PIN dots */}
       <div className="flex gap-4">
         {[0,1,2,3].map(i => (
           <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
-            i < pin.length ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'
+            i < currentLen ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'
           }`} />
         ))}
       </div>
@@ -950,7 +998,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           d === '' ? <div key={i} /> :
           <button
             key={i}
-            onClick={() => d === '⌫' ? setPin(p => p.slice(0,-1)) : handleDigit(d)}
+            onClick={() => d === '⌫' ? handleBackspace() : handleDigit(d)}
             className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl text-white text-xl font-semibold transition-colors border border-zinc-800"
           >
             {d}
@@ -958,7 +1006,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         ))}
       </div>
 
-      {biometryAvailable && (
+      {mode === 'unlock' && biometryAvailable && (
         <button onClick={triggerBiometric} className="flex items-center gap-2 text-emerald-400 text-sm">
           <Fingerprint className="w-5 h-5" />
           Use fingerprint
@@ -1211,6 +1259,7 @@ function BottomNav({
 
 export default function App() {
   const [locked, setLocked] = useState(true);
+  const lastActivity = useRef(Date.now());
   const [tab, setTab] = useState<Tab>('plays');
   const [plays, setPlays] = useState<Play[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -1284,6 +1333,25 @@ export default function App() {
     const id = setInterval(loadAll, 60_000);
     return () => clearInterval(id);
   }, [loadAll]);
+
+  // ── Inactivity auto-lock (5 minutes) ──────────────────────────────────────
+  useEffect(() => {
+    if (locked) return;
+    const TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const resetTimer = () => { lastActivity.current = Date.now(); };
+    window.addEventListener('touchstart', resetTimer, { passive: true });
+    window.addEventListener('mousedown', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    const checker = setInterval(() => {
+      if (Date.now() - lastActivity.current >= TIMEOUT) setLocked(true);
+    }, 10_000); // check every 10 s
+    return () => {
+      window.removeEventListener('touchstart', resetTimer);
+      window.removeEventListener('mousedown', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      clearInterval(checker);
+    };
+  }, [locked]);
 
   const handleScan = async () => {
     try {
