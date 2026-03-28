@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Support | Fortress Options</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "on-tertiary-fixed": "#2d1600",
+          "on-primary-fixed-variant": "#005226",
+          "background": "#131313",
+          "surface-variant": "#353534",
+          "primary": "#75ff9e",
+          "on-error-container": "#ffdad6",
+          "surface-dim": "#131313",
+          "surface-container-highest": "#353534",
+          "on-error": "#690005",
+          "on-secondary": "#002d6e",
+          "on-tertiary": "#4b2800",
+          "primary-fixed-dim": "#00e475",
+          "on-primary-container": "#00612e",
+          "on-secondary-fixed-variant": "#00429b",
+          "tertiary-fixed-dim": "#fdb878",
+          "on-primary": "#003918",
+          "secondary-fixed": "#d9e2ff",
+          "surface-container-lowest": "#0e0e0e",
+          "surface": "#131313",
+          "error-container": "#93000a",
+          "surface-container-low": "#1c1b1b",
+          "secondary-fixed-dim": "#b0c6ff",
+          "secondary-container": "#0068ed",
+          "surface-container": "#201f1f",
+          "tertiary": "#ffdec4",
+          "surface-tint": "#00e475",
+          "on-secondary-container": "#f2f3ff",
+          "on-primary-fixed": "#00210b",
+          "inverse-on-surface": "#313030",
+          "on-tertiary-container": "#794810",
+          "inverse-primary": "#006d35",
+          "inverse-surface": "#e5e2e1",
+          "surface-container-high": "#2a2a2a",
+          "tertiary-fixed": "#ffdcbf",
+          "on-surface": "#e5e2e1",
+          "secondary": "#b0c6ff",
+          "outline-variant": "#3b4a3d",
+          "outline": "#859585",
+          "surface-bright": "#393939",
+          "on-background": "#e5e2e1",
+          "error": "#ffb4ab",
+          "on-secondary-fixed": "#001945",
+          "on-tertiary-fixed-variant": "#6a3c03",
+          "primary-container": "#00e676",
+          "on-surface-variant": "#bacbb9",
+          "tertiary-container": "#ffba79",
+          "primary-fixed": "#62ff96"
+        },
+        fontFamily: {
+          "headline": ["Manrope"],
+          "body": ["Inter"],
+          "label": ["Inter"]
+        },
+        borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; }
+  .font-headline { font-family: 'Manrope', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(32, 31, 31, 0.6); backdrop-filter: blur(20px); }
+  .glow-primary { box-shadow: 0 0 20px rgba(117, 255, 158, 0.15); }
+  .hero-gradient { background: radial-gradient(circle at 50% 50%, rgba(0, 230, 118, 0.05) 0%, transparent 70%); }
+  input, textarea, select {
+    background-color: #201F1F !important;
+    border-color: #353534 !important;
+    color: #E5E2E1 !important;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: #75ff9e !important;
+    box-shadow: 0 0 0 1px rgba(117,255,158,0.3) !important;
+    outline: none !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #859585 !important;
+  }
+  select option {
+    background-color: #201F1F;
+    color: #E5E2E1;
+  }
+</style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
+
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#0E0E0E]">
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
+  <div class="text-2xl font-bold tracking-tighter text-[#E5E2E1] font-headline"><a href="index.html">Fortress Options</a></div>
+  <div class="hidden md:flex items-center gap-8">
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="index.html">Platform</a>
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="strategies.html">Strategies</a>
+    <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="index.html#pricing">Pricing</a>
+    <a class="text-label text-sm font-medium text-[#75FF9E] border-b-2 border-[#75FF9E] pb-1" href="support.html">Support</a>
+  </div>
+  <div class="flex items-center gap-4">
+    <a href="https://github.com/AntonioTate0007/fortress-options/releases/latest/download/fortress-options.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+  </div>
+</nav>
+</header>
+
+<main class="pt-24">
+
+  <!-- Hero Section -->
+  <section class="relative min-h-[400px] flex flex-col items-center justify-center text-center px-6 hero-gradient">
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px]"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-[120px]"></div>
+    <div class="relative z-10 max-w-4xl">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-high border border-outline-variant/20 mb-8">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        <span class="text-xs font-medium tracking-widest uppercase text-on-surface-variant">Customer Support</span>
+      </div>
+      <h1 class="font-headline text-5xl md:text-7xl font-extrabold tracking-tighter leading-tight mb-6">
+        We're Here <span class="text-primary">to Help</span>
+      </h1>
+      <p class="text-on-surface-variant text-lg md:text-xl max-w-2xl mx-auto font-body leading-relaxed">
+        Questions about your subscription, API key, or the app? We've got you.
+      </p>
+    </div>
+  </section>
+
+  <!-- Section 1: FAQ -->
+  <section class="py-24 px-6 bg-[#0E0E0E]">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-16">
+        <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">Answers</span>
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">Frequently Asked Questions</h2>
+      </div>
+
+      <div class="space-y-4">
+
+        <!-- FAQ 1 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">key</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">How do I get my API key?</h3>
+              <p class="text-on-surface-variant leading-relaxed">After subscribing, your API key is emailed to you automatically within minutes. Check your spam folder if you don't see it in your inbox — it comes from <span class="text-primary">noreply@fortress-options.com</span>.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">settings</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">How do I enter my API key in the app?</h3>
+              <p class="text-on-surface-variant leading-relaxed">Open the app, tap the <span class="text-[#E5E2E1]">⚙️ settings icon</span> in the top right, paste your API key in the <span class="text-[#E5E2E1]">"API Key"</span> field, and tap <span class="text-primary font-semibold">Connect</span>. The app will verify your key and connect to the live feed.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">swap_vert</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">Can I change my plan?</h3>
+              <p class="text-on-surface-variant leading-relaxed">Yes. Email us at <a href="mailto:support@fortress-options.com" class="text-primary hover:underline">support@fortress-options.com</a> and we'll upgrade or downgrade your subscription. Changes take effect within one business day.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 4 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">lock_reset</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">What if I lost my API key?</h3>
+              <p class="text-on-surface-variant leading-relaxed">Email us at <a href="mailto:support@fortress-options.com" class="text-primary hover:underline">support@fortress-options.com</a> with the email address you used to subscribe and we'll resend your key immediately.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 5 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">monitoring</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">What markets does Fortress cover?</h3>
+              <p class="text-on-surface-variant leading-relaxed"><span class="text-[#E5E2E1] font-semibold">Basic</span> covers <span class="text-primary">SPY & QQQ</span>. <span class="text-[#E5E2E1] font-semibold">Pro</span> and <span class="text-[#E5E2E1] font-semibold">Elite</span> add <span class="text-primary">AAPL, AMZN, MSFT, and GOOGL</span> — giving you the full suite of the most liquid options in the market.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 6 -->
+        <div class="rounded-2xl p-7 border border-[#353534] hover:border-primary/20 transition-all duration-300" style="background: rgba(32,31,31,0.6);">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">cancel</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-bold text-[#E5E2E1] text-lg mb-2">How do I cancel?</h3>
+              <p class="text-on-surface-variant leading-relaxed">Email <a href="mailto:support@fortress-options.com" class="text-primary hover:underline">support@fortress-options.com</a>. We'll cancel your subscription immediately with no questions asked. No hoops, no retention offers — just done.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Contact Form -->
+  <section class="py-24 px-6">
+    <div class="max-w-2xl mx-auto">
+      <div class="text-center mb-12">
+        <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">Get in Touch</span>
+        <h2 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1]">Contact Us</h2>
+        <p class="text-on-surface-variant mt-4">Couldn't find your answer above? Send us a message and we'll get back to you within 24 hours.</p>
+      </div>
+
+      <div class="rounded-2xl p-8 border border-[#353534]" style="background: rgba(32,31,31,0.6);">
+        <form action="mailto:support@fortress-options.com" method="POST" enctype="text/plain" class="space-y-6">
+
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div>
+              <label for="name" class="block text-sm font-medium text-[#BACBB9] mb-2">Name</label>
+              <input
+                type="text"
+                id="name"
+                name="Name"
+                placeholder="Your name"
+                required
+                class="w-full rounded-xl px-4 py-3 text-sm border transition-all duration-200"
+                style="background: #201F1F; border-color: #353534; color: #E5E2E1;"
+              />
+            </div>
+            <div>
+              <label for="email" class="block text-sm font-medium text-[#BACBB9] mb-2">Email</label>
+              <input
+                type="email"
+                id="email"
+                name="Email"
+                placeholder="your@email.com"
+                required
+                class="w-full rounded-xl px-4 py-3 text-sm border transition-all duration-200"
+                style="background: #201F1F; border-color: #353534; color: #E5E2E1;"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="subject" class="block text-sm font-medium text-[#BACBB9] mb-2">Subject</label>
+            <select
+              id="subject"
+              name="Subject"
+              class="w-full rounded-xl px-4 py-3 text-sm border transition-all duration-200"
+              style="background: #201F1F; border-color: #353534; color: #E5E2E1;"
+            >
+              <option value="General Question">General Question</option>
+              <option value="API Key Issue">API Key Issue</option>
+              <option value="Billing">Billing</option>
+              <option value="Bug Report">Bug Report</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="message" class="block text-sm font-medium text-[#BACBB9] mb-2">Message</label>
+            <textarea
+              id="message"
+              name="Message"
+              rows="6"
+              placeholder="Describe your issue or question in detail..."
+              required
+              class="w-full rounded-xl px-4 py-3 text-sm border transition-all duration-200 resize-none"
+              style="background: #201F1F; border-color: #353534; color: #E5E2E1;"
+            ></textarea>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full px-8 py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl hover:opacity-90 transition-all active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)] text-base"
+          >
+            Send Message
+          </button>
+        </form>
+
+        <p class="text-center text-sm text-on-surface-variant mt-6">
+          Or email us directly at <a href="mailto:support@fortress-options.com" class="text-primary hover:underline font-medium">support@fortress-options.com</a> — we respond within 24 hours.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Quick Links -->
+  <section class="py-24 px-6 bg-[#0E0E0E]">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-12">
+        <span class="text-xs font-semibold tracking-widest uppercase text-primary mb-4 block">Quick Access</span>
+        <h2 class="font-headline text-3xl md:text-4xl font-extrabold tracking-tighter text-[#E5E2E1]">Quick Links</h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Link 1 -->
+        <a
+          href="https://github.com/AntonioTate0007/fortress-options/releases/latest/download/fortress-options.apk"
+          class="rounded-2xl p-7 border border-[#353534] hover:border-primary/30 transition-all duration-300 group flex flex-col items-center text-center gap-4 no-underline"
+          style="background: rgba(32,31,31,0.6);"
+        >
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">📱</span>
+          </div>
+          <div>
+            <div class="font-headline font-bold text-[#E5E2E1] text-lg mb-1">Download Latest APK</div>
+            <div class="text-on-surface-variant text-sm">Get the newest version of Fortress Options for Android</div>
+          </div>
+          <div class="mt-auto flex items-center gap-1 text-primary text-sm font-semibold">
+            Download <span class="material-symbols-outlined text-base leading-none">arrow_forward</span>
+          </div>
+        </a>
+
+        <!-- Link 2 -->
+        <a
+          href="index.html#pricing"
+          class="rounded-2xl p-7 border border-[#353534] hover:border-primary/30 transition-all duration-300 group flex flex-col items-center text-center gap-4 no-underline"
+          style="background: rgba(32,31,31,0.6);"
+        >
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">📋</span>
+          </div>
+          <div>
+            <div class="font-headline font-bold text-[#E5E2E1] text-lg mb-1">Pricing & Plans</div>
+            <div class="text-on-surface-variant text-sm">Compare Basic, Pro, and Elite subscriptions</div>
+          </div>
+          <div class="mt-auto flex items-center gap-1 text-primary text-sm font-semibold">
+            View Plans <span class="material-symbols-outlined text-base leading-none">arrow_forward</span>
+          </div>
+        </a>
+
+        <!-- Link 3 -->
+        <a
+          href="index.html"
+          class="rounded-2xl p-7 border border-[#353534] hover:border-primary/30 transition-all duration-300 group flex flex-col items-center text-center gap-4 no-underline"
+          style="background: rgba(32,31,31,0.6);"
+        >
+          <div class="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/15 transition-all">
+            <span class="text-2xl">🏠</span>
+          </div>
+          <div>
+            <div class="font-headline font-bold text-[#E5E2E1] text-lg mb-1">Back to Home</div>
+            <div class="text-on-surface-variant text-sm">Return to the Fortress Options platform overview</div>
+          </div>
+          <div class="mt-auto flex items-center gap-1 text-primary text-sm font-semibold">
+            Go Home <span class="material-symbols-outlined text-base leading-none">arrow_forward</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="border-t border-[#353534] py-12 px-6">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="font-headline font-bold text-[#E5E2E1] text-lg tracking-tighter">Fortress Options</div>
+    <div class="flex items-center gap-6 text-sm text-on-surface-variant">
+      <a href="index.html" class="hover:text-[#E5E2E1] transition-colors">Platform</a>
+      <a href="strategies.html" class="hover:text-[#E5E2E1] transition-colors">Strategies</a>
+      <a href="index.html#pricing" class="hover:text-[#E5E2E1] transition-colors">Pricing</a>
+      <a href="support.html" class="hover:text-[#E5E2E1] transition-colors">Support</a>
+    </div>
+    <div class="text-xs text-on-surface-variant">© 2025 Fortress Options. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>
