@@ -87,7 +87,7 @@ type Tab = 'plays' | 'positions' | 'history' | 'alerts';
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 function getBase(): string {
-  return localStorage.getItem('fortress_server') || 'https://fortress-options.onrender.com';
+  return 'https://fortress-options.onrender.com';
 }
 
 function getApiKey(): string {
@@ -692,7 +692,6 @@ function CloseModal({
 // ─── Settings Modal ───────────────────────────────────────────────────────────
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [url, setUrl] = useState(localStorage.getItem('fortress_server') || 'https://fortress-options.onrender.com');
   const [apiKey, setApiKey] = useState(localStorage.getItem('fortress_api_key') || '');
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -708,7 +707,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   }, [apiKey]);
 
   const saveConnection = () => {
-    localStorage.setItem('fortress_server', url);
+    localStorage.removeItem('fortress_server'); // clear any old local IP
     localStorage.setItem('fortress_api_key', apiKey);
     onClose();
     window.location.reload();
@@ -753,17 +752,6 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {section === 'connection' && (
           <>
-            <p className="text-sm text-zinc-400 mb-2">Backend Server URL</p>
-            <input
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              placeholder="http://192.168.x.x:8001"
-              className="w-full bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 mb-2 focus:outline-none focus:border-emerald-500"
-            />
-            <p className="text-xs text-zinc-600 mb-4">
-              Run <code className="bg-zinc-800 px-1 py-0.5 rounded text-zinc-400">start_server.bat</code> on your PC, then paste your IPv4 address here.
-            </p>
-
             <p className="text-sm text-zinc-400 mb-2 flex items-center gap-2">
               <KeyRound className="w-4 h-4" /> API Key
             </p>
