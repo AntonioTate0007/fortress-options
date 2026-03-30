@@ -3,7 +3,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   Shield, RefreshCw, Settings, Bell, TrendingUp,
   AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
-  Fingerprint, Lock, KeyRound,
+  Fingerprint, Lock, KeyRound, Clock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -233,14 +233,17 @@ function PlayCard({ play, onTrack }: { play: Play; onTrack: (p: Play) => void })
         </div>
       </div>
 
-      {/* Expiration banner */}
+      {/* Expiration + scan timestamp */}
       <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700/50 rounded-xl px-3 py-2 mb-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Expires</span>
           <span className="text-sm font-semibold text-white">{formatExpiration(play.expiration, play.dte)}</span>
         </div>
         {play.found_at && (
-          <span className="text-[10px] text-zinc-500">Found {formatFoundAt(play.found_at)}</span>
+          <div className="flex items-center gap-1 bg-zinc-800 rounded-lg px-2 py-0.5">
+            <Clock className="w-2.5 h-2.5 text-emerald-500" />
+            <span className="text-[11px] font-medium text-zinc-300">{formatFoundAt(play.found_at)}</span>
+          </div>
         )}
       </div>
 
@@ -1186,12 +1189,29 @@ function PlaysScreen({
   onTrack: (p: Play) => void;
   onRefresh: () => void;
 }) {
+  // Most recent scan time = latest found_at across all plays
+  const lastScan = plays.length
+    ? plays.reduce((best, p) => {
+        if (!p.found_at) return best;
+        return !best || p.found_at > best ? p.found_at : best;
+      }, '' as string)
+    : '';
+  const lastScanLabel = lastScan ? `Last scan ${formatFoundAt(lastScan)}` : null;
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
         <div>
           <h2 className="text-sm font-bold text-white">Ranked Plays</h2>
-          <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+            {lastScanLabel && (
+              <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+                <Clock className="w-2.5 h-2.5" />
+                {lastScanLabel}
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={onRefresh}
