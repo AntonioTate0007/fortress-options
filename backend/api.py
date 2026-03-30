@@ -280,9 +280,32 @@ def background_loop():
 # ─── App Lifespan ────────────────────────────────────────────────────────────
 
 
+def seed_accounts():
+    """Ensure owner accounts survive ephemeral DB resets on Render."""
+    seeds = [
+        {
+            "email": "antonio@fortress-options.com",
+            "api_key": os.getenv("OWNER_API_KEY", "frt_IyX69zER4dj4TYNevSUdJ8iSBANMX6L0dPyLKJMaCzU"),
+            "tier": "elite",
+        },
+    ]
+    with get_db() as conn:
+        for s in seeds:
+            exists = conn.execute(
+                "SELECT id FROM subscribers WHERE api_key=?", (s["api_key"],)
+            ).fetchone()
+            if not exists:
+                conn.execute(
+                    "INSERT OR IGNORE INTO subscribers (email, api_key, tier, status) VALUES (?,?,?,'active')",
+                    (s["email"], s["api_key"], s["tier"]),
+                )
+        conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    seed_accounts()
     threading.Thread(target=background_loop, daemon=True).start()
     start_polling_thread()
     yield
@@ -382,12 +405,27 @@ async def stripe_webhook(request: Request):
 
 
 @app.post("/api/admin/grant")
-def admin_grant(email: str, tier: str = "pro", admin_key: str = ""):
-    """Admin endpoint to manually grant access (for testing or comps)."""
+def admin_grant(email: str, tier: str = "pro", admin_key: str = "", api_key: str = ""):
+    """Admin endpoint to manually grant access. Optionally supply a specific api_key."""
     if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
         raise HTTPException(403, "Unauthorized")
-    api_key = create_subscriber(email, tier)
-    send_api_key_email(email, api_key, tier)
+    if api_key:
+        # Use the supplied key — insert or update without generating a new one
+        with get_db() as conn:
+            existing = conn.execute("SELECT id FROM subscribers WHERE email=?", (email,)).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE subscribers SET api_key=?, tier=?, status='active' WHERE email=?",
+                    (api_key, tier, email),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO subscribers (email, api_key, tier, status) VALUES (?,?,?,'active')",
+                    (email, api_key, tier),
+                )
+            conn.commit()
+    else:
+        api_key = create_subscriber(email, tier)
     return {"email": email, "tier": tier, "api_key": api_key}
 
 
