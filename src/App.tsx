@@ -149,13 +149,17 @@ function isMarketJustOpened(): boolean {
 // ─── Shared Components ────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }: { score: number }) {
+  const isHot = score >= 8;
   const cls =
     score >= 8 ? 'bg-emerald-500 text-black'
     : score >= 6 ? 'bg-yellow-400 text-black'
     : score >= 4 ? 'bg-orange-400 text-black'
     : 'bg-red-500 text-white';
   return (
-    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cls}`}>
+    <span
+      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cls} ${isHot ? 'animate-pulse shadow-[0_0_10px_2px_rgba(16,185,129,0.7)]' : ''}`}
+      style={isHot ? { boxShadow: '0 0 10px 2px rgba(16,185,129,0.75)' } : undefined}
+    >
       {score}/10
     </span>
   );
@@ -269,9 +273,10 @@ function PlayCard({ play, onTrack }: { play: Play; onTrack: (p: Play) => void })
 
       <button
         onClick={() => onTrack(play)}
-        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors"
+        className={`w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors ${play.score >= 8 ? 'animate-pulse shadow-[0_0_16px_4px_rgba(16,185,129,0.6)]' : ''}`}
+        style={play.score >= 8 ? { boxShadow: '0 0 18px 5px rgba(16,185,129,0.55)' } : undefined}
       >
-        Track Trade
+        {play.score >= 8 ? '🔥 Track Trade' : 'Track Trade'}
       </button>
     </motion.div>
   );

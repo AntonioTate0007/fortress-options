@@ -1,0 +1,5 @@
+{
+  "name": "Fortress Options Scanner",
+  "description": "Automated options scanning bot for high-probability Put Credit Spreads on mega-cap stocks and ETFs.",
+  "requestFramePermissions": []
+}

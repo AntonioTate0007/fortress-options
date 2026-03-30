@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python bot.py)",
+      "Bash(py --version)",
+      "Bash(python3 -m pip install -r requirements.txt -q)",
+      "Bash(python3 bot.py)",
+      "Bash(powershell -Command \":*)",
+      "Bash(python3 -m pip install pystray Pillow -q)",
+      "Bash(python3 -c \"import pystray; from PIL import Image, ImageDraw; print\\(''imports ok''\\)\")",
+      "Bash(python3 -m pip install pywin32 -q)",
+      "Bash(python3 -c \"import pystray; print\\(pystray.__version__\\); from pystray._win32 import Icon; print\\(''win32 backend ok''\\)\")",
+      "Bash(python3 -c \"from pystray._win32 import Icon; print\\(''win32 backend ok''\\)\")",
+      "Bash(python3 -m pip install infi.systray -q)",
+      "Bash(python3 -c \"from infi.systray import SysTrayIcon; print\\(''infi.systray ok''\\)\")",
+      "Bash(python3 -:*)",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}
