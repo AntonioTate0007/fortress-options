@@ -13,6 +13,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import stripe
 import schedule as sch
@@ -50,6 +51,17 @@ PREMIUM_MAX = 2.00
 _scan_lock = threading.Lock()
 _is_scanning = False
 
+
+def is_market_hours() -> bool:
+    """Returns True if US equity market is currently open (Mon-Fri 9:30–16:00 ET)."""
+    et = ZoneInfo("America/New_York")
+    now = datetime.now(et)
+    if now.weekday() >= 5:  # Sat=5, Sun=6
+        return False
+    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
 # ─── WebSocket Manager ────────────────────────────────────────────────────────
 
 
@@ -82,12 +94,16 @@ manager = ConnectionManager()
 # ─── Scanner ─────────────────────────────────────────────────────────────────
 
 
-def scan_and_save():
+def scan_and_save(force: bool = False):
     global _is_scanning
     if not _scan_lock.acquire(blocking=False):
         return
     _is_scanning = True
     try:
+        if not force and not is_market_hours():
+            print(f"[{datetime.now():%H:%M:%S}] Market closed — skipping scan.")
+            return
+
         print(f"[{datetime.now():%H:%M:%S}] Running Fortress scan...")
         with get_db() as conn:
             conn.execute("UPDATE plays SET is_active = 0 WHERE is_active = 1")
@@ -100,78 +116,103 @@ def scan_and_save():
                 expirations = ticker.options
                 today = datetime.now()
 
-                target_date, dte = None, 0
+                # Collect all expirations in the DTE window (try each until a play is found)
+                valid_exps = []
                 for exp in expirations:
-                    exp_date = datetime.strptime(exp, "%Y-%m-%d")
-                    diff = (exp_date - today).days
+                    diff = (datetime.strptime(exp, "%Y-%m-%d") - today).days
                     if MIN_DTE <= diff <= MAX_DTE:
-                        target_date, dte = exp, diff
-                        break
+                        valid_exps.append((exp, diff))
 
-                if not target_date:
+                if not valid_exps:
+                    nearest = expirations[0] if expirations else "none"
+                    print(f"  {symbol}: no exp in {MIN_DTE}-{MAX_DTE}d window (nearest={nearest})")
                     continue
 
-                opt_chain = ticker.option_chain(target_date)
-                puts = opt_chain.puts
-                puts = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
+                found = False
+                for target_date, dte in valid_exps:
+                    if found:
+                        break
 
-                lower = current_price * (1 - OTM_BUFFER_MAX)
-                upper = current_price * (1 - OTM_BUFFER_MIN)
-                candidates = puts[(puts["strike"] >= lower) & (puts["strike"] <= upper)]
+                    opt_chain = ticker.option_chain(target_date)
+                    puts = opt_chain.puts
+                    puts = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
 
-                for _, short_put in candidates.iterrows():
-                    short_strike = float(short_put["strike"])
-                    long_strike = short_strike - SPREAD_WIDTH
-                    long_row = puts[puts["strike"] == long_strike]
-                    if long_row.empty:
+                    lower = current_price * (1 - OTM_BUFFER_MAX)
+                    upper = current_price * (1 - OTM_BUFFER_MIN)
+                    candidates = puts[(puts["strike"] >= lower) & (puts["strike"] <= upper)]
+
+                    if candidates.empty:
+                        print(f"  {symbol} {target_date}: 0 OTM candidates "
+                              f"(price={current_price:.2f}, need ${lower:.0f}-${upper:.0f}, live_puts={len(puts)})")
                         continue
 
-                    long_put = long_row.iloc[0]
-                    short_mid = (float(short_put["bid"]) + float(short_put["ask"])) / 2
-                    long_mid = (float(long_put["bid"]) + float(long_put["ask"])) / 2
-                    net_credit = short_mid - long_mid
+                    best_credit = 0.0
+                    has_long = False
+                    for _, short_put in candidates.iterrows():
+                        short_strike = float(short_put["strike"])
+                        long_strike = short_strike - SPREAD_WIDTH
+                        long_row = puts[puts["strike"] == long_strike]
+                        if long_row.empty:
+                            continue
+                        has_long = True
 
-                    if PREMIUM_MIN <= net_credit <= PREMIUM_MAX:
-                        buffer_pct = ((current_price - short_strike) / current_price) * 100
-                        max_risk = (SPREAD_WIDTH * 100) - (net_credit * 100)
-                        iv = float(short_put.get("impliedVolatility") or 0)
-                        volume = int(short_put.get("volume") or 0)
-                        oi = int(short_put.get("openInterest") or 0)
+                        long_put = long_row.iloc[0]
+                        short_mid = (float(short_put["bid"]) + float(short_put["ask"])) / 2
+                        long_mid = (float(long_put["bid"]) + float(long_put["ask"])) / 2
+                        net_credit = short_mid - long_mid
+                        best_credit = max(best_credit, net_credit)
 
-                        play = {
-                            "symbol": symbol,
-                            "short_strike": short_strike,
-                            "long_strike": long_strike,
-                            "expiration": target_date,
-                            "dte": dte,
-                            "current_price": current_price,
-                            "net_credit": net_credit,
-                            "max_risk": max_risk,
-                            "spread_width": SPREAD_WIDTH,
-                            "buffer_pct": buffer_pct,
-                            "volume": volume,
-                            "open_interest": oi,
-                            "iv": iv,
-                        }
-                        score, breakdown = score_play(play)
+                        if PREMIUM_MIN <= net_credit <= PREMIUM_MAX:
+                            buffer_pct = ((current_price - short_strike) / current_price) * 100
+                            max_risk = (SPREAD_WIDTH * 100) - (net_credit * 100)
+                            iv = float(short_put.get("impliedVolatility") or 0)
+                            volume = int(short_put.get("volume") or 0)
+                            oi = int(short_put.get("openInterest") or 0)
 
-                        with get_db() as conn:
-                            conn.execute(
-                                """INSERT INTO plays
-                                (symbol, play_type, short_strike, long_strike, expiration, dte,
-                                 current_price, net_credit, max_risk, spread_width, buffer_pct,
-                                 score, score_breakdown, volume, open_interest, iv, is_active)
-                                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
-                                (
-                                    symbol, "fortress", short_strike, long_strike, target_date, dte,
-                                    round(current_price, 2), round(net_credit, 2), round(max_risk, 2),
-                                    SPREAD_WIDTH, round(buffer_pct, 2), score, json.dumps(breakdown),
-                                    volume, oi, round(iv, 4),
-                                ),
-                            )
-                            conn.commit()
-                        print(f"  Found: {symbol} ${short_strike}/{long_strike} | Score {score}/10 | Credit ${net_credit:.2f}")
-                        break  # one play per symbol
+                            play = {
+                                "symbol": symbol,
+                                "short_strike": short_strike,
+                                "long_strike": long_strike,
+                                "expiration": target_date,
+                                "dte": dte,
+                                "current_price": current_price,
+                                "net_credit": net_credit,
+                                "max_risk": max_risk,
+                                "spread_width": SPREAD_WIDTH,
+                                "buffer_pct": buffer_pct,
+                                "volume": volume,
+                                "open_interest": oi,
+                                "iv": iv,
+                            }
+                            score, breakdown = score_play(play)
+
+                            with get_db() as conn:
+                                conn.execute(
+                                    """INSERT INTO plays
+                                    (symbol, play_type, short_strike, long_strike, expiration, dte,
+                                     current_price, net_credit, max_risk, spread_width, buffer_pct,
+                                     score, score_breakdown, volume, open_interest, iv, is_active)
+                                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
+                                    (
+                                        symbol, "fortress", short_strike, long_strike, target_date, dte,
+                                        round(current_price, 2), round(net_credit, 2), round(max_risk, 2),
+                                        SPREAD_WIDTH, round(buffer_pct, 2), score, json.dumps(breakdown),
+                                        volume, oi, round(iv, 4),
+                                    ),
+                                )
+                                conn.commit()
+                            print(f"  Found: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
+                                  f"exp={target_date} | Score {score}/10 | Credit ${net_credit:.2f}")
+                            found = True
+                            break
+
+                    if not found:
+                        if not has_long:
+                            print(f"  {symbol} {target_date}: no ${SPREAD_WIDTH:.0f}-wide long put available")
+                        elif best_credit < PREMIUM_MIN:
+                            print(f"  {symbol} {target_date}: best credit ${best_credit:.2f} < min ${PREMIUM_MIN}")
+                        else:
+                            print(f"  {symbol} {target_date}: best credit ${best_credit:.2f} > max ${PREMIUM_MAX}")
 
                 time.sleep(1)  # yfinance rate limit buffer
 
@@ -429,6 +470,23 @@ def admin_grant(email: str, tier: str = "pro", admin_key: str = "", api_key: str
     return {"email": email, "tier": tier, "api_key": api_key}
 
 
+@app.post("/api/admin/notify")
+def admin_notify(message: str, admin_key: str = ""):
+    """Admin: send a Telegram message to all Elite subscribers with Telegram linked."""
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    from telegram_bot import send_message as tg_send
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT telegram_chat_id FROM subscribers WHERE tier='elite' AND status='active' AND telegram_chat_id IS NOT NULL"
+        ).fetchall()
+    sent = 0
+    for row in rows:
+        if tg_send(row["telegram_chat_id"], message):
+            sent += 1
+    return {"sent": sent, "total_elite_linked": len(rows)}
+
+
 @app.get("/api/auth/verify")
 def verify_key(sub: dict = Depends(require_api_key)):
     """Check if an API key is valid and return subscriber info."""
@@ -513,7 +571,7 @@ def get_plays(sub: dict = Depends(require_api_key)):
 
 @app.post("/api/scan")
 def trigger_scan():
-    t = threading.Thread(target=scan_and_save, daemon=True)
+    t = threading.Thread(target=lambda: scan_and_save(force=True), daemon=True)
     t.start()
     return {"message": "Scan started"}
 

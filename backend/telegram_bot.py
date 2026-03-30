@@ -58,6 +58,71 @@ def send_elite_alert(alert_type: str, message: str):
         send_message(row["telegram_chat_id"], text)
 
 
+# ── Command handlers ──────────────────────────────────────────────────────────
+
+def _handle_plays(chat_id: str):
+    """Send the current active plays to the user (must be a linked Elite subscriber)."""
+    from db import get_db
+    with get_db() as conn:
+        sub = conn.execute(
+            "SELECT tier FROM subscribers WHERE telegram_chat_id=? AND status='active'", (chat_id,)
+        ).fetchone()
+    if not sub:
+        send_message(chat_id, "❌ No linked account. Send <code>/start YOUR_API_KEY</code> first.")
+        return
+
+    from db import get_db
+    with get_db() as conn:
+        plays = conn.execute(
+            "SELECT symbol, short_strike, long_strike, expiration, dte, net_credit, score "
+            "FROM plays WHERE is_active=1 AND expiration >= date('now') ORDER BY score DESC"
+        ).fetchall()
+
+    if not plays:
+        send_message(chat_id, "📭 No active plays right now.\nPlays are scanned every 30 min during market hours (9:30–16:00 ET).")
+        return
+
+    lines = ["📊 <b>Active Plays</b>\n"]
+    for p in plays:
+        lines.append(
+            f"• <b>{p['symbol']}</b> ${p['short_strike']:.0f}/{p['long_strike']:.0f} "
+            f"exp {p['expiration']} ({p['dte']}d)\n"
+            f"  Credit: <b>${p['net_credit']:.2f}</b> | Score: {p['score']}/10"
+        )
+    send_message(chat_id, "\n\n".join(lines))
+
+
+def _handle_status(chat_id: str):
+    """Send current bot/market status."""
+    from db import get_db
+    import datetime as dt
+    with get_db() as conn:
+        plays_count = conn.execute("SELECT COUNT(*) FROM plays WHERE is_active=1").fetchone()[0]
+        pos_count = conn.execute("SELECT COUNT(*) FROM tracked_positions WHERE status='open'").fetchone()[0]
+
+    from zoneinfo import ZoneInfo
+    et = ZoneInfo("America/New_York")
+    now = dt.datetime.now(et)
+    weekday = now.weekday()
+    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    if weekday >= 5:
+        market_status = "🔴 Weekend — closed"
+    elif market_open <= now <= market_close:
+        market_status = "🟢 Open"
+    else:
+        market_status = "🔴 Closed"
+
+    send_message(
+        chat_id,
+        f"🏰 <b>Fortress Options Status</b>\n\n"
+        f"Market: {market_status}\n"
+        f"Active plays: <b>{plays_count}</b>\n"
+        f"Open positions: <b>{pos_count}</b>\n"
+        f"Time (ET): {now.strftime('%H:%M %Z %a')}"
+    )
+
+
 # ── /start handler ────────────────────────────────────────────────────────────
 
 def _handle_update(update: dict):
@@ -70,13 +135,23 @@ def _handle_update(update: dict):
     if not chat_id:
         return
 
-    # ── Only respond to /start — ignore everything else silently ──────────────
-    # This prevents prompt injection, info fishing, and social engineering.
+    # ── Route commands ────────────────────────────────────────────────────────
+    if text.startswith("/plays"):
+        _handle_plays(chat_id)
+        return
+
+    if text.startswith("/status"):
+        _handle_status(chat_id)
+        return
+
+    # ── Only respond to /start for everything else ────────────────────────────
     if not text.startswith("/start"):
         send_message(
             chat_id,
-            "ℹ️ This bot only responds to <code>/start YOUR_API_KEY</code>.\n"
-            "It does not answer questions or share any account information.",
+            "ℹ️ Available commands:\n"
+            "• <code>/start YOUR_API_KEY</code> — link your Elite account\n"
+            "• <code>/plays</code> — view today's active plays\n"
+            "• <code>/status</code> — check bot status",
         )
         return
 

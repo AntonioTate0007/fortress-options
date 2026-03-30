@@ -1,4 +1,4 @@
-﻿<!-- Fortress Options v1.7.0 - deploy -->
+﻿<!-- Fortress Options v1.8.0 -->
 <!DOCTYPE html>
 
 <html class="dark" lang="en"><head>
@@ -127,9 +127,9 @@
 <span class="material-symbols-outlined" data-icon="android" style="font-variation-settings: 'FILL' 1;">android</span>
                         Download APK
                     </a>
-<button class="w-full sm:w-auto px-8 py-4 bg-surface-container-highest text-on-surface font-semibold rounded-xl hover:bg-surface-bright transition-all">
-                        Explore Platform
-                    </button>
+<a href="#how-it-works" class="w-full sm:w-auto px-8 py-4 bg-surface-container-highest text-on-surface font-semibold rounded-xl hover:bg-surface-bright transition-all text-center">
+                        How It Works
+                    </a>
 </div>
 </div>
 <!-- App Phone Mockup -->
@@ -246,8 +246,8 @@
 <div class="md:col-span-8 group relative overflow-hidden rounded-3xl bg-surface-container-low p-8 border border-outline-variant/10 hover:border-primary/30 transition-all duration-500">
 <div class="relative z-10">
 <span class="material-symbols-outlined text-primary text-3xl mb-4" data-icon="show_chart">show_chart</span>
-<h3 class="text-2xl font-bold mb-3 font-headline">Advanced Charting</h3>
-<p class="text-on-surface-variant max-w-md">Multi-layer technical indicators with sub-millisecond data refresh. View Delta, Gamma, and Theta as live overlays on your price action.</p>
+<h3 class="text-2xl font-bold mb-3 font-headline">Bull Put Spread Scanner</h3>
+<p class="text-on-surface-variant max-w-md">Scans 8 tickers every 30 min during market hours. Finds high-probability credit spreads 3–10% OTM with 5–21 DTE, ranks each play 1–10 using IV, volume, buffer, and return on risk.</p>
 </div>
 <div class="absolute bottom-0 right-0 w-1/2 translate-y-1/4 group-hover:scale-105 transition-transform duration-700">
 <img class="opacity-50" data-alt="close-up of digital financial charts with clean green lines and glowing data points on a deep black background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWMMF1fR3Q6WualS8exCNwRq_N477g2vJG_rX5pFgeINd7XteHZSLltDR8LISKYfVLZVb0ZXcTQofO_QkaxTCDHPO4ocTpzP7Q3WZi_6VLeZRVYmZOwaTNoGpBk6eXKygckqr8wOyCkKu_2hEZzZIEU-td2VQoHMoUcYzQJ0Bdo1yeggS06BhTP8b41EJlSdlxM1ksj00A9ZAzm-zi5rUS6TZSsaoN8NWfQJeQvK1AYt5yIYDXFHHAfetZ3m7ajxpEKdfiSNWf07m6"/>
@@ -273,13 +273,13 @@
 <div class="h-full flex flex-col justify-between">
 <div>
 <span class="material-symbols-outlined text-tertiary text-3xl mb-4" data-icon="bolt">bolt</span>
-<h3 class="text-xl font-bold mb-3 font-headline">Flash Fill</h3>
-<p class="text-on-surface-variant text-sm">One-click execution logic. Built for high-volatility environments where every millisecond counts.</p>
+<h3 class="text-xl font-bold mb-3 font-headline">Position Tracker</h3>
+<p class="text-on-surface-variant text-sm">Tap Track Trade after entering in your broker. Fortress monitors your spread's P&amp;L every 5 min and fires an alert the moment your exit target hits.</p>
 </div>
 <div class="mt-8 p-4 bg-surface-container-high rounded-xl group-hover:translate-x-2 transition-transform">
 <div class="flex justify-between items-center">
-<span class="text-xs font-bold text-primary">BUY CALL</span>
-<span class="text-xs text-on-surface-variant">SPY $500</span>
+<span class="text-xs font-bold text-primary">+20% → TAKE PROFIT</span>
+<span class="text-xs text-on-surface-variant">SPY spread</span>
 </div>
 </div>
 </div>
@@ -288,11 +288,11 @@
 <div class="md:col-span-8 bg-surface p-8 rounded-3xl border border-outline-variant/10 relative overflow-hidden">
 <div class="flex flex-col md:flex-row gap-8 items-center h-full">
 <div class="flex-1">
-<h3 class="text-2xl font-bold mb-3 font-headline">Institutional Backbone</h3>
-<p class="text-on-surface-variant">Tier-1 liquidity providers ensure deep books and tight spreads even during market distress. Secure cold-storage for collateral assets.</p>
+<h3 class="text-2xl font-bold mb-3 font-headline">Always-On Scanner</h3>
+<p class="text-on-surface-variant">Runs every 30 minutes during market hours across 8 tickers — SPY, QQQ, AAPL, AMZN, MSFT, GOOGL, TSLA, NVDA. Plays are scored and ranked the moment they're found.</p>
 <div class="flex gap-4 mt-8">
-<span class="px-3 py-1 rounded bg-outline-variant/20 text-[10px] uppercase font-bold tracking-tighter">SEC REGULATED</span>
-<span class="px-3 py-1 rounded bg-outline-variant/20 text-[10px] uppercase font-bold tracking-tighter">FINRA COMPLIANT</span>
+<span class="px-3 py-1 rounded bg-outline-variant/20 text-[10px] uppercase font-bold tracking-tighter">YFINANCE DATA</span>
+<span class="px-3 py-1 rounded bg-outline-variant/20 text-[10px] uppercase font-bold tracking-tighter">REAL-TIME SCORING</span>
 </div>
 </div>
 <div class="flex-1">
@@ -427,18 +427,31 @@
   </div>
 </section>
 
-<!-- Quote/Trust Section -->
-<section class="py-24 bg-surface-container-lowest">
-<div class="max-w-4xl mx-auto px-8 text-center">
-<span class="material-symbols-outlined text-primary/40 text-6xl mb-8" data-icon="format_quote">format_quote</span>
-<blockquote class="text-2xl md:text-4xl font-headline font-bold leading-snug mb-10 italic">
-                    "Fortress Options has finally brought the desktop power of an institutional trading desk to my pocket. The latency and risk visualization are unmatched."
-                </blockquote>
-<div class="flex flex-col items-center">
-<img class="w-16 h-16 rounded-full border-2 border-primary mb-4 object-cover" data-alt="professional financial analyst portrait in a modern dark studio setting with soft cyan ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9EOcOtERbnuLsnXgVyCl2jvWi1WKCTXVbOGgwRd9OiqPE7UI2wZDTDwpfJk8mzB7Hj5NN7CnXAVmQ94s2caaY2ulZyObMSVmVw2WSQ3WB6jHudRjlrTGF4AAmLp-eEMG4nmBJNXK9uelAd-vlpuULrpdWQNWW4Estwz1tjzxqd7ZEr1FtYZMkB2-g-wlFaq9Z3hHpYSDdiQRkXzyCnfZppJ8KNPdYa5cdV2UhN4bEsldXguISLZJr5yzp1bH7YyzaadnToxuYHGiM"/>
-<p class="font-bold">Julian V. Thorne</p>
-<p class="text-xs text-on-surface-variant uppercase tracking-widest">Hedge Fund Manager &amp; Derivatives Specialist</p>
-</div>
+<!-- Stats Strip -->
+<section class="py-20 bg-surface-container-lowest">
+<div class="max-w-5xl mx-auto px-8">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+    <div class="p-6 rounded-2xl bg-surface-container border border-outline-variant/10">
+      <div class="text-4xl font-extrabold font-headline text-primary mb-1">8</div>
+      <div class="text-xs text-on-surface-variant uppercase tracking-widest">Tickers Scanned</div>
+      <div class="text-xs text-on-surface-variant/60 mt-1">SPY QQQ AAPL AMZN<br/>MSFT GOOGL TSLA NVDA</div>
+    </div>
+    <div class="p-6 rounded-2xl bg-surface-container border border-outline-variant/10">
+      <div class="text-4xl font-extrabold font-headline text-primary mb-1">30m</div>
+      <div class="text-xs text-on-surface-variant uppercase tracking-widest">Scan Interval</div>
+      <div class="text-xs text-on-surface-variant/60 mt-1">During market hours<br/>9:30 AM – 4:00 PM ET</div>
+    </div>
+    <div class="p-6 rounded-2xl bg-surface-container border border-outline-variant/10">
+      <div class="text-4xl font-extrabold font-headline text-primary mb-1">5m</div>
+      <div class="text-xs text-on-surface-variant uppercase tracking-widest">P&amp;L Refresh</div>
+      <div class="text-xs text-on-surface-variant/60 mt-1">Tracked positions<br/>updated every 5 min</div>
+    </div>
+    <div class="p-6 rounded-2xl bg-surface-container border border-outline-variant/10">
+      <div class="text-4xl font-extrabold font-headline text-primary mb-1">&lt;1s</div>
+      <div class="text-xs text-on-surface-variant uppercase tracking-widest">Alert Delivery</div>
+      <div class="text-xs text-on-surface-variant/60 mt-1">Telegram push to Elite<br/>subscribers instantly</div>
+    </div>
+  </div>
 </div>
 </section>
 <!-- Pricing Section -->
@@ -482,7 +495,7 @@
       <ul class="space-y-3 mb-8 flex-1 text-sm">
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>All Basic symbols</li>
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>AAPL, AMZN, MSFT, GOOGL</li>
-        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Earnings plays</li>
+        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>TSLA &amp; NVDA plays</li>
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Real-time scoring</li>
         <li class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-base">remove</span>Telegram alerts</li>
       </ul>
