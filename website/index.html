@@ -527,8 +527,13 @@
   const API = 'https://fortress-options.onrender.com';
   let selectedTier = '';
 
+  // Pre-warm Render on page load so checkout is instant
+  fetch(`${API}/api/status`).catch(() => {});
+
   function startCheckout(tier) {
     selectedTier = tier;
+    // Re-ping on modal open in case server went back to sleep
+    fetch(`${API}/api/status`).catch(() => {});
     document.getElementById('checkout-modal').style.display = 'flex';
     document.getElementById('checkout-email').focus();
   }
@@ -540,7 +545,7 @@
     const email = document.getElementById('checkout-email').value.trim();
     if (!email || !email.includes('@')) { alert('Please enter a valid email.'); return; }
     const btn = document.getElementById('checkout-submit');
-    btn.textContent = 'Redirecting...';
+    btn.textContent = 'Connecting...';
     btn.disabled = true;
     try {
       const res = await fetch(`${API}/api/subscribe`, {
