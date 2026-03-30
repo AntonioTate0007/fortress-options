@@ -1760,6 +1760,8 @@ export default function App() {
 
   // ── Notification setup ────────────────────────────────────────────────────
   const seenAlertIds = useRef<Set<number>>(new Set());
+  const seenPlayIds  = useRef<Set<number>>(new Set());
+  const firstPlayLoad = useRef(true);
 
   useEffect(() => {
     // Request permission once on mount
@@ -1776,13 +1778,13 @@ export default function App() {
     newAlerts.forEach(a => seenAlertIds.current.add(a.id));
 
     const notifications = newAlerts.map((a, i) => ({
-      id: a.id,
+      id: 10000 + a.id,
       title: a.alert_type === 'profit'
         ? `📈 ${a.symbol} — Profit Target Hit!`
         : `📉 ${a.symbol} — Loss Alert`,
       body: a.message,
       schedule: { at: new Date(Date.now() + i * 300) },
-      sound: undefined,
+      sound: 'fortress_alert',
       smallIcon: 'ic_stat_icon_config_sample',
       iconColor: a.alert_type === 'profit' ? '#00c896' : '#ef4444',
     }));
@@ -1791,8 +1793,40 @@ export default function App() {
   }, [alerts]);
 
   useEffect(() => {
+    // Skip the very first load (don't notify for plays already there at open)
+    if (firstPlayLoad.current) {
+      plays.forEach(p => seenPlayIds.current.add(p.id));
+      firstPlayLoad.current = false;
+      return;
+    }
+
+    const newPlays = plays.filter(p => !seenPlayIds.current.has(p.id));
+    if (newPlays.length === 0) return;
+
+    newPlays.forEach(p => seenPlayIds.current.add(p.id));
+
+    // Sort best first
+    const sorted = [...newPlays].sort((a, b) => b.score - a.score);
+
+    const notifications = sorted.map((p, i) => ({
+      id: 20000 + p.id,
+      title: p.score >= 8
+        ? `🔥 HOT PLAY — ${p.symbol} (${p.score}/10)`
+        : `⚡ New Play — ${p.symbol} (${p.score}/10)`,
+      body: `$${p.short_strike}/$${p.long_strike} Put Spread · $${p.net_credit.toFixed(2)} credit · ${p.buffer_pct.toFixed(1)}% buffer`,
+      schedule: { at: new Date(Date.now() + i * 400) },
+      sound: 'fortress_alert',
+      smallIcon: 'ic_stat_icon_config_sample',
+      iconColor: p.score >= 8 ? '#10b981' : '#f59e0b',
+      extra: { playId: p.id },
+    }));
+
+    LocalNotifications.schedule({ notifications }).catch(() => {});
+  }, [plays]);
+
+  useEffect(() => {
     loadAll();
-    const id = setInterval(loadAll, 60_000);
+    const id = setInterval(loadAll, 30_000); // poll every 30s for fast play delivery
     return () => clearInterval(id);
   }, [loadAll]);
 
