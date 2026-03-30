@@ -9,6 +9,14 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ScoreBreakdown {
+  premium_ratio: number;  // 0-3
+  buffer: number;         // 0-2
+  liquidity: number;      // 0-2
+  dte: number;            // 0-2
+  iv: number;             // 0-1
+}
+
 interface Play {
   id: number;
   symbol: string;
@@ -23,6 +31,7 @@ interface Play {
   spread_width: number;
   buffer_pct: number;
   score: number;
+  score_breakdown?: string; // JSON string from DB
   volume: number;
   open_interest: number;
   iv: number;
@@ -209,14 +218,15 @@ function formatFoundAt(ts: string): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-function PlayCard({ play, onTrack }: { play: Play; onTrack: (p: Play) => void }) {
+function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p: Play) => void; onViewReasoning: (p: Play) => void }) {
   const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#161618] border border-zinc-800/80 rounded-2xl p-4"
+      className="bg-[#161618] border border-zinc-800/80 rounded-2xl p-4 cursor-pointer active:scale-[0.99] transition-transform"
+      onClick={() => onViewReasoning(play)}
     >
       <div className="flex items-start justify-between mb-3">
         <div>
@@ -271,13 +281,21 @@ function PlayCard({ play, onTrack }: { play: Play; onTrack: (p: Play) => void })
         <StatPill label="OI" value={`${play.open_interest || 0}`} dim />
       </div>
 
-      <button
-        onClick={() => onTrack(play)}
-        className={`w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors ${play.score >= 8 ? 'animate-pulse shadow-[0_0_16px_4px_rgba(16,185,129,0.6)]' : ''}`}
-        style={play.score >= 8 ? { boxShadow: '0 0 18px 5px rgba(16,185,129,0.55)' } : undefined}
-      >
-        {play.score >= 8 ? '🔥 Track Trade' : 'Track Trade'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={e => { e.stopPropagation(); onViewReasoning(play); }}
+          className="flex-none px-3 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl transition-colors border border-zinc-700/50"
+        >
+          Why?
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onTrack(play); }}
+          className={`flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors ${play.score >= 8 ? 'animate-pulse shadow-[0_0_16px_4px_rgba(16,185,129,0.6)]' : ''}`}
+          style={play.score >= 8 ? { boxShadow: '0 0 18px 5px rgba(16,185,129,0.55)' } : undefined}
+        >
+          {play.score >= 8 ? '🔥 Track Trade' : 'Track Trade'}
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -545,6 +563,156 @@ function TrackModal({
 }
 
 // ─── Recommend Modal ──────────────────────────────────────────────────────────
+
+// ─── Play Reasoning Modal ─────────────────────────────────────────────────────
+
+function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: () => void; onTrack: (p: Play) => void }) {
+  const bd: ScoreBreakdown = play.score_breakdown
+    ? JSON.parse(play.score_breakdown)
+    : { premium_ratio: 0, buffer: 0, liquidity: 0, dte: 0, iv: 0 };
+
+  const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
+  const isHot = play.score >= 8;
+
+  const categories = [
+    {
+      label: 'Premium Quality',
+      key: 'premium_ratio' as keyof ScoreBreakdown,
+      max: 3,
+      icon: '💰',
+      value: bd.premium_ratio,
+      desc: bd.premium_ratio === 3
+        ? `${returnPct}% return — excellent premium for the risk`
+        : bd.premium_ratio === 2
+        ? `${returnPct}% return — solid credit collected`
+        : bd.premium_ratio === 1
+        ? `${returnPct}% return — acceptable but tighter than ideal`
+        : `${returnPct}% return — low premium, higher risk/reward ratio`,
+    },
+    {
+      label: 'Safety Buffer',
+      key: 'buffer' as keyof ScoreBreakdown,
+      max: 2,
+      icon: '🛡️',
+      value: bd.buffer,
+      desc: bd.buffer === 2
+        ? `${play.buffer_pct.toFixed(1)}% below current price — strong downside cushion`
+        : bd.buffer === 1
+        ? `${play.buffer_pct.toFixed(1)}% below current price — moderate buffer`
+        : `${play.buffer_pct.toFixed(1)}% below current price — tight, needs close watch`,
+    },
+    {
+      label: 'Liquidity',
+      key: 'liquidity' as keyof ScoreBreakdown,
+      max: 2,
+      icon: '🌊',
+      value: bd.liquidity,
+      desc: bd.liquidity === 2
+        ? `Vol ${play.volume} · OI ${play.open_interest} — highly liquid, easy fills`
+        : bd.liquidity === 1
+        ? `Vol ${play.volume} · OI ${play.open_interest} — decent liquidity`
+        : `Vol ${play.volume} · OI ${play.open_interest} — thin market, expect wider spreads`,
+    },
+    {
+      label: 'Days to Expiry',
+      key: 'dte' as keyof ScoreBreakdown,
+      max: 2,
+      icon: '📅',
+      value: bd.dte,
+      desc: bd.dte === 2
+        ? `${play.dte} DTE — sweet spot for theta decay (9-12 days)`
+        : bd.dte === 1
+        ? `${play.dte} DTE — acceptable range for premium selling`
+        : `${play.dte} DTE — outside optimal theta decay window`,
+    },
+    {
+      label: 'Implied Volatility',
+      key: 'iv' as keyof ScoreBreakdown,
+      max: 1,
+      icon: '📊',
+      value: bd.iv,
+      desc: bd.iv === 1
+        ? `IV ${(play.iv * 100).toFixed(0)}% — elevated IV means richer premium to sell`
+        : `IV ${(play.iv * 100).toFixed(0)}% — below 20%, premium is thinner`,
+    },
+  ];
+
+  const verdictColor = play.score >= 8 ? 'text-emerald-400' : play.score >= 6 ? 'text-yellow-400' : 'text-orange-400';
+  const verdict = play.score >= 8
+    ? 'Strong setup — all key factors align'
+    : play.score >= 6
+    ? 'Good play — most criteria met'
+    : play.score >= 4
+    ? 'Moderate — some trade-offs present'
+    : 'Weak signal — proceed with caution';
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xl font-bold text-white">{play.symbol}</h3>
+              <ScoreBadge score={play.score} />
+              {play.play_type === 'earnings' && (
+                <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">${play.short_strike}/${play.long_strike} Put Spread · ${play.net_credit.toFixed(2)} credit</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        {/* Verdict */}
+        <div className={`flex items-center gap-2 bg-zinc-900 rounded-xl px-3 py-2.5 mb-4 border ${isHot ? 'border-emerald-500/30' : 'border-zinc-700/50'}`}>
+          <span className="text-lg">{isHot ? '🔥' : '📋'}</span>
+          <p className={`text-sm font-semibold ${verdictColor}`}>{verdict}</p>
+        </div>
+
+        {/* Score breakdown */}
+        <div className="space-y-3 mb-4">
+          {categories.map(cat => (
+            <div key={cat.key} className="bg-zinc-900/60 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{cat.icon}</span>
+                  <span className="text-xs font-semibold text-zinc-200">{cat.label}</span>
+                </div>
+                <span className={`text-xs font-bold ${cat.value === cat.max ? 'text-emerald-400' : cat.value > 0 ? 'text-yellow-400' : 'text-zinc-500'}`}>
+                  {cat.value}/{cat.max}
+                </span>
+              </div>
+              {/* Bar */}
+              <div className="flex gap-0.5 mb-1.5">
+                {Array.from({ length: cat.max }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full ${i < cat.value
+                      ? cat.value === cat.max ? 'bg-emerald-500' : 'bg-yellow-400'
+                      : 'bg-zinc-700'}`}
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-snug">{cat.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={() => { onClose(); onTrack(play); }}
+          className={`w-full py-3 font-bold text-sm rounded-xl transition-colors text-black ${isHot ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-emerald-600 hover:bg-emerald-500'} ${isHot ? 'animate-pulse shadow-[0_0_16px_4px_rgba(16,185,129,0.5)]' : ''}`}
+          style={isHot ? { boxShadow: '0 0 18px 5px rgba(16,185,129,0.45)' } : undefined}
+        >
+          {isHot ? '🔥 Track This Trade' : 'Track This Trade'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
 
 function RecommendModal({ position, onClose }: { position: Position; onClose: () => void }) {
   const [rec, setRec] = useState<Recommendation | null>(null);
@@ -1196,12 +1364,13 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 // ─── Screens ─────────────────────────────────────────────────────────────────
 
 function PlaysScreen({
-  plays, loading, scanning, onTrack, onRefresh,
+  plays, loading, scanning, onTrack, onViewReasoning, onRefresh,
 }: {
   plays: Play[];
   loading: boolean;
   scanning: boolean;
   onTrack: (p: Play) => void;
+  onViewReasoning: (p: Play) => void;
   onRefresh: () => void;
 }) {
   // Most recent scan time = latest found_at across all plays
@@ -1273,7 +1442,7 @@ function PlaysScreen({
       ) : (
         <div className="px-4 py-4 space-y-4">
           {plays.map(p => (
-            <PlayCard key={p.id} play={p} onTrack={onTrack} />
+            <PlayCard key={p.id} play={p} onTrack={onTrack} onViewReasoning={onViewReasoning} />
           ))}
         </div>
       )}
@@ -1731,6 +1900,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const [trackPlay, setTrackPlay] = useState<Play | null>(null);
+  const [reasoningPlay, setReasoningPlay] = useState<Play | null>(null);
   const [recommendPos, setRecommendPos] = useState<Position | null>(null);
   const [closePos, setClosePos] = useState<Position | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -1962,7 +2132,7 @@ export default function App() {
       <AnimatePresence mode="wait">
         {tab === 'plays' && (
           <motion.div key="plays" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onRefresh={handleScan} />
+            <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onViewReasoning={setReasoningPlay} onRefresh={handleScan} />
           </motion.div>
         )}
         {tab === 'positions' && (
@@ -1987,6 +2157,14 @@ export default function App() {
 
       {/* Modals */}
       <AnimatePresence>
+        {reasoningPlay && (
+          <PlayReasoningModal
+            key="reasoning"
+            play={reasoningPlay}
+            onClose={() => setReasoningPlay(null)}
+            onTrack={p => { setReasoningPlay(null); setTrackPlay(p); }}
+          />
+        )}
         {trackPlay && (
           <TrackModal key="track" play={trackPlay} onConfirm={handleTrackConfirm} onClose={() => setTrackPlay(null)} />
         )}
