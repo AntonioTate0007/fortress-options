@@ -90,6 +90,17 @@ def init_db():
         );
         """)
         conn.commit()
+        # fcm_tokens — one row per device, keyed by api_key
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_key    TEXT NOT NULL,
+            token      TEXT NOT NULL UNIQUE,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        conn.commit()
+
         # Migration: add telegram_chat_id if upgrading from older schema
         try:
             conn.execute("ALTER TABLE subscribers ADD COLUMN telegram_chat_id TEXT")

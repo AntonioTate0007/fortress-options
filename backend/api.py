@@ -18,6 +18,23 @@ from zoneinfo import ZoneInfo
 import stripe
 import schedule as sch
 import uvicorn
+
+# ─── Firebase / FCM ──────────────────────────────────────────────────────────
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging as fcm_messaging
+
+    _firebase_key = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if _firebase_key and not firebase_admin._apps:
+        import json as _json
+        _cred = credentials.Certificate(_json.loads(_firebase_key))
+        firebase_admin.initialize_app(_cred)
+        print("[FCM] Firebase Admin initialized.")
+    else:
+        print("[FCM] FIREBASE_SERVICE_ACCOUNT_JSON not set — push disabled.")
+except ImportError:
+    fcm_messaging = None
+    print("[FCM] firebase-admin not installed — push disabled.")
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,6 +67,35 @@ PREMIUM_MAX = 2.00
 
 _scan_lock = threading.Lock()
 _is_scanning = False
+
+
+def send_fcm_to_all(title: str, body: str, data: dict = None):
+    """Send a push notification to every registered FCM token."""
+    if fcm_messaging is None:
+        return
+    with get_db() as conn:
+        rows = conn.execute("SELECT DISTINCT token FROM fcm_tokens").fetchall()
+    tokens = [r["token"] for r in rows]
+    if not tokens:
+        return
+    for token in tokens:
+        try:
+            msg = fcm_messaging.Message(
+                notification=fcm_messaging.Notification(title=title, body=body),
+                data={k: str(v) for k, v in (data or {}).items()},
+                android=fcm_messaging.AndroidConfig(
+                    priority="high",
+                    notification=fcm_messaging.AndroidNotification(
+                        sound="fortress_alert",
+                        channel_id="fortress_plays",
+                        color="#10b981",
+                    ),
+                ),
+                token=token,
+            )
+            fcm_messaging.send(msg)
+        except Exception as e:
+            print(f"[FCM] Send failed for token {token[:20]}...: {e}")
 
 
 def is_market_hours() -> bool:
@@ -220,6 +266,21 @@ def scan_and_save(force: bool = False):
                 print(f"  Scan error {symbol}: {e}")
 
         print(f"[{datetime.now():%H:%M:%S}] Scan complete.")
+
+        # Send FCM push for newly found plays
+        with get_db() as conn:
+            new_plays = conn.execute(
+                "SELECT symbol, score, net_credit, short_strike, long_strike, buffer_pct "
+                "FROM plays WHERE is_active=1 ORDER BY score DESC"
+            ).fetchall()
+        if new_plays:
+            top = new_plays[0]
+            count = len(new_plays)
+            emoji = "🔥" if top["score"] >= 8 else "⚡"
+            title = f"{emoji} {count} new play{'s' if count > 1 else ''} — {top['symbol']} scores {top['score']}/10"
+            body = (f"${top['short_strike']:.0f}/{top['long_strike']:.0f} put spread · "
+                    f"${top['net_credit']:.2f} credit · {top['buffer_pct']:.1f}% buffer")
+            send_fcm_to_all(title, body, {"play_id": str(top["score"]), "tab": "plays"})
     finally:
         _is_scanning = False
         _scan_lock.release()
@@ -723,6 +784,29 @@ def trigger_scan():
     t = threading.Thread(target=lambda: scan_and_save(force=True), daemon=True)
     t.start()
     return {"message": "Scan started"}
+
+
+@app.post("/api/fcm/register")
+def register_fcm_token(token: str, sub: dict = Depends(require_api_key)):
+    """Register or update an FCM device token for the authenticated subscriber."""
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO fcm_tokens (api_key, token, updated_at)
+               VALUES (?, ?, datetime('now'))
+               ON CONFLICT(token) DO UPDATE SET api_key=excluded.api_key, updated_at=excluded.updated_at""",
+            (sub["api_key"], token),
+        )
+        conn.commit()
+    return {"message": "FCM token registered"}
+
+
+@app.delete("/api/fcm/unregister")
+def unregister_fcm_token(token: str, sub: dict = Depends(require_api_key)):
+    """Remove an FCM token (e.g. on logout)."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM fcm_tokens WHERE token=? AND api_key=?", (token, sub["api_key"]))
+        conn.commit()
+    return {"message": "FCM token removed"}
 
 
 @app.post("/api/track")

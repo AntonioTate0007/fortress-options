@@ -8,3 +8,4 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 stripe>=8.0.0
 python-multipart>=0.0.9
+firebase-admin>=6.4.0

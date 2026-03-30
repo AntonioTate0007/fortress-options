@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Open Positions</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 390px;
+    height: 844px;
+    background: #0A0A0B;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    color: #fff;
+    overflow: hidden;
+  }
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  .header {
+    padding: 8px 16px 14px;
+    border-bottom: 1px solid #27272a;
+  }
+  .header-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+  .header-sub {
+    font-size: 12px;
+    color: #71717a;
+    margin-top: 2px;
+  }
+  /* Summary stats row */
+  .stats-banner {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .stat-pill {
+    flex: 1;
+    background: #161618;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .stat-pill .label {
+    font-size: 10px;
+    color: #71717a;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat-pill .value {
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 2px;
+  }
+  .stat-pill .value.green { color: #10b981; }
+  .stat-pill .value.white { color: #e4e4e7; }
+  .scroll-area {
+    padding: 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+  .pos-card {
+    background: #161618;
+    border-radius: 16px;
+    border: 1px solid #27272a;
+    overflow: hidden;
+  }
+  .pos-card.winning { border-left: 3px solid #10b981; }
+  .pos-card.losing { border-left: 3px solid #f87171; }
+  .pos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid #1f1f22;
+  }
+  .pos-left {}
+  .pos-symbol { font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+  .pos-strategy { font-size: 11px; color: #71717a; margin-top: 2px; }
+  .pos-right { text-align: right; }
+  .pnl-pct {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .pnl-pct.pos { color: #10b981; }
+  .pnl-pct.neg { color: #f87171; }
+  .pnl-dollar { font-size: 12px; font-weight: 600; margin-top: 1px; }
+  .pnl-dollar.pos { color: #059669; }
+  .pnl-dollar.neg { color: #ef4444; }
+  .pos-details {
+    padding: 10px 14px;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .detail-row:last-child { margin-bottom: 0; }
+  .detail-label { font-size: 11px; color: #71717a; }
+  .detail-value { font-size: 12px; font-weight: 600; color: #a1a1aa; }
+  .pos-strikes {
+    padding: 8px 14px;
+    background: #111113;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .strike-chip {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 8px;
+  }
+  .strike-chip.sell {
+    background: #064e3b;
+    color: #10b981;
+    border: 1px solid #059669;
+  }
+  .strike-chip.buy {
+    background: #3b0f0f;
+    color: #f87171;
+    border: 1px solid #ef4444;
+  }
+  .strike-sep { color: #3f3f46; font-size: 12px; }
+  .exp-chip {
+    margin-left: auto;
+    font-size: 10px;
+    color: #71717a;
+    background: #1c1c1e;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .pos-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px 14px;
+  }
+  .btn-ai {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #3f3f46;
+    color: #a1a1aa;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 9px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .btn-close {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #f87171;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 9px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  /* Progress bar for P&L */
+  .pnl-bar-wrap {
+    padding: 0 14px 10px;
+  }
+  .pnl-bar-track {
+    height: 4px;
+    background: #27272a;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .pnl-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+  .pnl-bar-fill.pos { background: linear-gradient(90deg, #059669, #10b981); }
+  .pnl-bar-fill.neg { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .dte-warn {
+    font-size: 10px;
+    background: #422006;
+    color: #fb923c;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .nav-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #111113;
+    border-top: 1px solid #27272a;
+    display: flex;
+    padding: 10px 0 20px;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: #52525b;
+    font-weight: 500;
+  }
+  .nav-item.active { color: #10b981; }
+  .nav-icon { font-size: 18px; }
+</style>
+</head>
+<body>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span>9:41</span>
+  <div class="status-icons">
+    <svg width="16" height="11" viewBox="0 0 16 11" fill="white"><rect x="0" y="4" width="3" height="7" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="8.5" rx="0.5"/><rect x="9" y="0.5" width="3" height="10.5" rx="0.5"/><rect x="13.5" y="0" width="2" height="11" rx="0.5" opacity="0.3"/></svg>
+    <svg width="15" height="11" viewBox="0 0 15 11" fill="white"><path d="M7.5 2.2C9.7 2.2 11.7 3.1 13.1 4.6L14.5 3.1C12.7 1.2 10.2 0 7.5 0C4.8 0 2.3 1.2 0.5 3.1L1.9 4.6C3.3 3.1 5.3 2.2 7.5 2.2Z" opacity="0.4"/><path d="M7.5 5.2C9 5.2 10.3 5.8 11.3 6.8L12.7 5.3C11.3 3.9 9.5 3 7.5 3C5.5 3 3.7 3.9 2.3 5.3L3.7 6.8C4.7 5.8 6 5.2 7.5 5.2Z" opacity="0.7"/><circle cx="7.5" cy="9" r="2"/></svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="white"/><path d="M23 4v4a2 2 0 000-4z" fill="white" opacity="0.4"/></svg>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-title">Open Positions</div>
+  <div class="header-sub">2 tracked · Updated just now</div>
+</div>
+
+<!-- Stats banner -->
+<div class="stats-banner">
+  <div class="stat-pill">
+    <div class="label">Avg P&L</div>
+    <div class="value green">+34.2%</div>
+  </div>
+  <div class="stat-pill">
+    <div class="label">Profitable</div>
+    <div class="value white">2 / 2</div>
+  </div>
+  <div class="stat-pill">
+    <div class="label">Days Left</div>
+    <div class="value white">Avg 7d</div>
+  </div>
+</div>
+
+<!-- Positions -->
+<div class="scroll-area">
+
+  <!-- SPY Position -->
+  <div class="pos-card winning">
+    <div class="pos-header">
+      <div class="pos-left">
+        <div class="pos-symbol">SPY</div>
+        <div class="pos-strategy">Bull Put Spread</div>
+      </div>
+      <div class="pos-right">
+        <div class="pnl-pct pos">+42.5%</div>
+        <div class="pnl-dollar pos">+$37.00</div>
+      </div>
+    </div>
+    <div class="pos-strikes">
+      <span class="strike-chip sell">Sell $515P</span>
+      <span class="strike-sep">/</span>
+      <span class="strike-chip buy">Buy $510P</span>
+      <span class="exp-chip">Apr 11 · 13d</span>
+    </div>
+    <div class="pos-details">
+      <div class="detail-row">
+        <span class="detail-label">Entry credit</span>
+        <span class="detail-value">$0.87</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Current mid</span>
+        <span class="detail-value" style="color:#10b981;">$0.50</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Max risk</span>
+        <span class="detail-value">$413</span>
+      </div>
+    </div>
+    <div class="pnl-bar-wrap">
+      <div class="pnl-bar-track"><div class="pnl-bar-fill pos" style="width:42.5%"></div></div>
+    </div>
+    <div class="pos-actions">
+      <button class="btn-ai">🤖 AI Advice</button>
+      <button class="btn-close">✕ Close Position</button>
+    </div>
+  </div>
+
+  <!-- AAPL Position -->
+  <div class="pos-card winning">
+    <div class="pos-header">
+      <div class="pos-left">
+        <div class="pos-symbol">AAPL</div>
+        <div class="pos-strategy">Bull Put Spread</div>
+      </div>
+      <div class="pos-right">
+        <div class="pnl-pct pos">+25.9%</div>
+        <div class="pnl-dollar pos">+$18.00</div>
+      </div>
+    </div>
+    <div class="pos-strikes">
+      <span class="strike-chip sell">Sell $195P</span>
+      <span class="strike-sep">/</span>
+      <span class="strike-chip buy">Buy $190P</span>
+      <span class="exp-chip" style="color:#fb923c;background:#422006;">Apr 7 · 9d</span>
+    </div>
+    <div class="pos-details">
+      <div class="detail-row">
+        <span class="detail-label">Entry credit</span>
+        <span class="detail-value">$0.69</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Current mid</span>
+        <span class="detail-value" style="color:#10b981;">$0.51</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Max risk</span>
+        <span class="detail-value">$431</span>
+      </div>
+    </div>
+    <div class="pnl-bar-wrap">
+      <div class="pnl-bar-track"><div class="pnl-bar-fill pos" style="width:26%"></div></div>
+    </div>
+    <div class="pos-actions">
+      <button class="btn-ai">🤖 AI Advice</button>
+      <button class="btn-close">✕ Close Position</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Nav Bar -->
+<div class="nav-bar">
+  <div class="nav-item">
+    <span class="nav-icon">🎯</span>
+    <span>Plays</span>
+  </div>
+  <div class="nav-item active">
+    <span class="nav-icon">📊</span>
+    <span>Positions</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">📈</span>
+    <span>History</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">🔔</span>
+    <span>Alerts</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">⚙️</span>
+    <span>Settings</span>
+  </div>
+</div>
+
+</body>
+</html>

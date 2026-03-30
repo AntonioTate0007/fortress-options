@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "Screenshots Server",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "4321", "website/screenshots"],
+      "port": 4321
     }
   ]
 }

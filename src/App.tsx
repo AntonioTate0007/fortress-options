@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
 import {
   Shield, RefreshCw, Settings, Bell, TrendingUp,
   AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
@@ -1934,8 +1935,48 @@ export default function App() {
   const firstPlayLoad = useRef(true);
 
   useEffect(() => {
-    // Request permission once on mount
+    // Request local notification permission
     LocalNotifications.requestPermissions().catch(() => {});
+
+    // Register for FCM push notifications
+    PushNotifications.requestPermissions().then(result => {
+      if (result.receive === 'granted') {
+        PushNotifications.register();
+      }
+    }).catch(() => {});
+
+    // When FCM gives us a token, send it to the backend
+    PushNotifications.addListener('registration', async (token) => {
+      try {
+        const base = 'https://fortress-options.onrender.com';
+        const key = localStorage.getItem('fortress_api_key');
+        if (key && token.value) {
+          await fetch(`${base}/api/fcm/register?token=${encodeURIComponent(token.value)}`, {
+            method: 'POST',
+            headers: { 'X-API-Key': key },
+          });
+        }
+      } catch {}
+    });
+
+    // Handle FCM push received while app is in foreground — show local notification
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      LocalNotifications.schedule({
+        notifications: [{
+          id: Math.floor(Math.random() * 90000) + 10000,
+          title: notification.title || '⚡ Fortress Options',
+          body: notification.body || '',
+          schedule: { at: new Date(Date.now() + 100) },
+          sound: 'fortress_alert',
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#10b981',
+        }],
+      }).catch(() => {});
+    });
+
+    return () => {
+      PushNotifications.removeAllListeners();
+    };
   }, []);
 
   useEffect(() => {
