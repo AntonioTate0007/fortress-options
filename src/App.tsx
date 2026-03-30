@@ -951,23 +951,26 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
 function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const isFirstSetup = !localStorage.getItem('fortress_pin');
-  const [mode, setMode] = useState<'setup' | 'setup-confirm' | 'unlock'>(
-    isFirstSetup ? 'setup' : 'unlock'
+  const biometricPreferred = localStorage.getItem('fortress_use_biometric') === 'true';
+  const [mode, setMode] = useState<'setup' | 'setup-confirm' | 'biometric' | 'pin'>(
+    isFirstSetup ? 'setup' : biometricPreferred ? 'biometric' : 'pin'
   );
   const [setupPin, setSetupPin] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [biometryAvailable, setBiometryAvailable] = useState(false);
 
+  // Auto-trigger biometric on load when it's the preferred method
   useEffect(() => {
-    if (mode !== 'unlock') return;
-    try {
-      // @ts-ignore
-      if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
-        setBiometryAvailable(true);
-        triggerBiometric();
-      }
-    } catch {}
+    if (mode !== 'biometric') return;
+    // @ts-ignore
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+      setBiometryAvailable(true);
+      triggerBiometric();
+    } else {
+      // Not on device — fall back to PIN
+      setMode('pin');
+    }
   }, [mode]);
 
   const triggerBiometric = async () => {
@@ -980,7 +983,9 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         fallbackTitle: 'Use PIN',
       });
       onUnlock();
-    } catch {}
+    } catch {
+      // User cancelled or failed — stay on biometric screen, allow retry or PIN
+    }
   };
 
   const handleDigit = (d: string) => {
@@ -1012,7 +1017,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       setPin(next);
       setError('');
       if (next.length === 4) {
-        if (next === savedPin) {
+        if (next === savedPin || savedPin === 'biometric') {
           onUnlock();
         } else {
           setError('Incorrect PIN');
@@ -1030,6 +1035,39 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const currentLen = mode === 'setup' ? setupPin.length : pin.length;
   const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
+  // ── Biometric unlock screen ──────────────────────────────────────────────
+  if (mode === 'biometric') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
+        <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
+          <Shield className="w-9 h-9 text-black" />
+        </div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white">Fortress Options</h1>
+          <p className="text-sm text-zinc-500 mt-1">Touch the sensor to unlock</p>
+        </div>
+
+        {/* Big fingerprint tap target */}
+        <button
+          onClick={triggerBiometric}
+          className="w-32 h-32 rounded-full bg-zinc-900 border-2 border-emerald-500/40 flex items-center justify-center active:scale-95 transition-transform shadow-[0_0_40px_rgba(16,185,129,0.15)]"
+        >
+          <Fingerprint className="w-16 h-16 text-emerald-400" />
+        </button>
+
+        <p className="text-emerald-400 text-sm font-medium">Tap to use fingerprint</p>
+
+        <button
+          onClick={() => { setMode('pin'); setPin(''); setError(''); }}
+          className="text-zinc-500 text-sm mt-2"
+        >
+          Use PIN instead
+        </button>
+      </div>
+    );
+  }
+
+  // ── PIN / setup screens ──────────────────────────────────────────────────
   const title = mode === 'setup'
     ? 'Create Your PIN'
     : mode === 'setup-confirm'
@@ -1066,7 +1104,17 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       {/* Numpad */}
       <div className="grid grid-cols-3 gap-3 w-64">
         {digits.map((d, i) => (
-          d === '' ? <div key={i} /> :
+          d === '' ? (
+            biometryAvailable && mode === 'pin' ? (
+              <button
+                key={i}
+                onClick={triggerBiometric}
+                className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl flex items-center justify-center transition-colors border border-zinc-800"
+              >
+                <Fingerprint className="w-7 h-7 text-emerald-400" />
+              </button>
+            ) : <div key={i} />
+          ) :
           <button
             key={i}
             onClick={() => d === '⌫' ? handleBackspace() : handleDigit(d)}
@@ -1077,10 +1125,9 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         ))}
       </div>
 
-      {mode === 'unlock' && biometryAvailable && (
-        <button onClick={triggerBiometric} className="flex items-center gap-2 text-emerald-400 text-sm">
-          <Fingerprint className="w-5 h-5" />
-          Use fingerprint
+      {biometricPreferred && mode === 'pin' && (
+        <button onClick={() => setMode('biometric')} className="text-zinc-500 text-sm">
+          ← Back to fingerprint
         </button>
       )}
     </div>
