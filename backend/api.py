@@ -38,14 +38,14 @@ from telegram_bot import start_polling_thread, send_elite_alert
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-WATCHLIST = ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL"]
+WATCHLIST = ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL", "TSLA", "NVDA"]
 SPREAD_WIDTH = 5.0
-MIN_DTE = 7
-MAX_DTE = 14
-OTM_BUFFER_MIN = 0.05
-OTM_BUFFER_MAX = 0.08
-PREMIUM_MIN = 0.35
-PREMIUM_MAX = 0.80
+MIN_DTE = 5
+MAX_DTE = 21
+OTM_BUFFER_MIN = 0.03
+OTM_BUFFER_MAX = 0.10
+PREMIUM_MIN = 0.15
+PREMIUM_MAX = 2.00
 
 _scan_lock = threading.Lock()
 _is_scanning = False
