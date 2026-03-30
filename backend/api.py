@@ -404,7 +404,7 @@ def list_subscribers(admin_key: str = ""):
         raise HTTPException(403, "Unauthorized")
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, email, tier, status, created_at FROM subscribers ORDER BY created_at DESC"
+            "SELECT id, email, api_key, tier, status, created_at FROM subscribers ORDER BY created_at DESC"
         ).fetchall()
     return [dict(r) for r in rows]
 
