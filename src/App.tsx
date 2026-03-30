@@ -3,7 +3,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   Shield, RefreshCw, Settings, Bell, TrendingUp,
   AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
-  Fingerprint, Lock, KeyRound, Clock,
+  Fingerprint, Lock, KeyRound, Clock, Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -406,13 +406,13 @@ function HistoryRow({ pos }: { pos: Position }) {
 
 // ─── Alert Row ────────────────────────────────────────────────────────────────
 
-function AlertRow({ alert, onAck }: { alert: Alert; onAck: (id: number) => void }) {
+function AlertRow({ alert, onAck, onDelete }: { alert: Alert; onAck: (id: number) => void; onDelete: (id: number) => void }) {
   const isProfit = alert.alert_type === 'profit';
   return (
     <div
       className={`bg-[#161618] border rounded-xl p-3.5 ${
         isProfit ? 'border-emerald-500/25' : 'border-red-500/25'
-      }`}
+      } ${alert.acknowledged ? 'opacity-60' : ''}`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 shrink-0 ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -427,14 +427,24 @@ function AlertRow({ alert, onAck }: { alert: Alert; onAck: (id: number) => void 
             {alert.triggered_at.slice(0, 16).replace('T', ' ')}
           </p>
         </div>
-        {!alert.acknowledged && (
+        <div className="flex flex-col gap-1 shrink-0">
+          {!alert.acknowledged && (
+            <button
+              onClick={() => onAck(alert.id)}
+              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+              title="Mark read"
+            >
+              <X className="w-3.5 h-3.5 text-zinc-400" />
+            </button>
+          )}
           <button
-            onClick={() => onAck(alert.id)}
-            className="shrink-0 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+            onClick={() => onDelete(alert.id)}
+            className="p-1.5 bg-red-500/10 hover:bg-red-500/25 rounded-lg transition-colors"
+            title="Delete alert"
           >
-            <X className="w-3.5 h-3.5 text-zinc-400" />
+            <Trash2 className="w-3.5 h-3.5 text-red-400" />
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -1389,19 +1399,34 @@ function HistoryScreen({ history, loading }: { history: Position[]; loading: boo
 }
 
 function AlertsScreen({
-  alerts, loading, onAck,
+  alerts, loading, onAck, onDelete, onClearAll,
 }: {
   alerts: Alert[];
   loading: boolean;
   onAck: (id: number) => void;
+  onDelete: (id: number) => void;
+  onClearAll: () => void;
 }) {
   const unread = alerts.filter(a => !a.acknowledged).length;
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
-        <h2 className="text-sm font-bold text-white">Alerts</h2>
-        <p className="text-xs text-zinc-500">{unread} unread</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-white">Alerts</h2>
+            <p className="text-xs text-zinc-500">{unread} unread</p>
+          </div>
+          {alerts.length > 0 && (
+            <button
+              onClick={onClearAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium transition-colors"
+            >
+              <Trash2 className="w-3 h-3" />
+              Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && alerts.length === 0 ? (
@@ -1416,7 +1441,7 @@ function AlertsScreen({
         </div>
       ) : (
         <div className="px-4 py-4 space-y-3">
-          {alerts.map(a => <AlertRow key={a.id} alert={a} onAck={onAck} />)}
+          {alerts.map(a => <AlertRow key={a.id} alert={a} onAck={onAck} onDelete={onDelete} />)}
         </div>
       )}
     </div>
@@ -1839,6 +1864,20 @@ export default function App() {
     } catch {}
   };
 
+  const handleDeleteAlert = async (id: number) => {
+    try {
+      await apiFetch(`/api/alerts/${id}`, { method: 'DELETE' });
+      setAlerts(prev => prev.filter(a => a.id !== id));
+    } catch {}
+  };
+
+  const handleClearAlerts = async () => {
+    try {
+      await apiFetch('/api/alerts', { method: 'DELETE' });
+      setAlerts([]);
+    } catch {}
+  };
+
   const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
   const isOnline = status?.status === 'online';
 
@@ -1904,7 +1943,7 @@ export default function App() {
         )}
         {tab === 'alerts' && (
           <motion.div key="alerts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <AlertsScreen alerts={alerts} loading={loading} onAck={handleAck} />
+            <AlertsScreen alerts={alerts} loading={loading} onAck={handleAck} onDelete={handleDeleteAlert} onClearAll={handleClearAlerts} />
           </motion.div>
         )}
       </AnimatePresence>

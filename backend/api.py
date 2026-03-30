@@ -818,6 +818,22 @@ def ack_alert(alert_id: int):
     return {"message": "Acknowledged"}
 
 
+@app.delete("/api/alerts/{alert_id}")
+def delete_alert(alert_id: int, api_key: str = Depends(require_api_key)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM alerts WHERE id=?", (alert_id,))
+        conn.commit()
+    return {"message": "Deleted"}
+
+
+@app.delete("/api/alerts")
+def clear_all_alerts(api_key: str = Depends(require_api_key)):
+    with get_db() as conn:
+        conn.execute("DELETE FROM alerts")
+        conn.commit()
+    return {"message": "All alerts cleared"}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await manager.connect(ws)
