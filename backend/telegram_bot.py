@@ -67,7 +67,17 @@ def _handle_update(update: dict):
     text = (msg.get("text") or "").strip()
     chat_id = str(msg.get("chat", {}).get("id", ""))
 
+    if not chat_id:
+        return
+
+    # ── Only respond to /start — ignore everything else silently ──────────────
+    # This prevents prompt injection, info fishing, and social engineering.
     if not text.startswith("/start"):
+        send_message(
+            chat_id,
+            "ℹ️ This bot only responds to <code>/start YOUR_API_KEY</code>.\n"
+            "It does not answer questions or share any account information.",
+        )
         return
 
     parts = text.split()
@@ -83,14 +93,19 @@ def _handle_update(update: dict):
 
     api_key = parts[1].strip()
 
+    # ── Validate key format — must start with frt_ ────────────────────────────
+    if not api_key.startswith("frt_") or len(api_key) < 20:
+        send_message(chat_id, "❌ Invalid API key format.")
+        return
+
     with get_db() as conn:
         sub = conn.execute(
-            "SELECT * FROM subscribers WHERE api_key=? AND status='active'",
+            "SELECT id, email, tier, status FROM subscribers WHERE api_key=? AND status='active'",
             (api_key,),
         ).fetchone()
 
     if not sub:
-        send_message(chat_id, "❌ API key not found or inactive. Double-check in the app Settings.")
+        send_message(chat_id, "❌ API key not found or inactive. Double-check in the app under Settings → Connection.")
         return
 
     sub = dict(sub)
@@ -103,6 +118,20 @@ def _handle_update(update: dict):
         )
         return
 
+    # ── Check if this chat_id is already linked to a DIFFERENT account ────────
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM subscribers WHERE telegram_chat_id=? AND api_key!=?",
+            (chat_id, api_key),
+        ).fetchone()
+        if existing:
+            # Unlink from old account before linking to new one
+            conn.execute(
+                "UPDATE subscribers SET telegram_chat_id=NULL WHERE telegram_chat_id=? AND api_key!=?",
+                (chat_id, api_key),
+            )
+            conn.commit()
+
     with get_db() as conn:
         conn.execute(
             "UPDATE subscribers SET telegram_chat_id=? WHERE api_key=?",
@@ -110,14 +139,14 @@ def _handle_update(update: dict):
         )
         conn.commit()
 
+    # ── Never expose email or account details in confirmation ─────────────────
     send_message(
         chat_id,
-        f"✅ <b>Fortress Options Elite connected!</b>\n\n"
-        f"Account: <code>{sub['email']}</code>\n\n"
-        f"You'll now receive instant alerts when:\n"
-        f"• 📈 A position hits <b>+20% profit</b>\n"
-        f"• 📉 A position drops <b>−10% loss</b>\n\n"
-        f"Happy trading! 🏰",
+        "✅ <b>Fortress Options Elite connected!</b>\n\n"
+        "You'll now receive instant alerts when:\n"
+        "• 📈 A position hits <b>+20% profit</b>\n"
+        "• 📉 A position drops <b>−10% loss</b>\n\n"
+        "Happy trading! 🏰",
     )
 
 
