@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "327549389359",
+    "project_id": "fortress-options",
+    "storage_bucket": "fortress-options.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327549389359:android:8e4820282fafb7ffba14da",
+        "android_client_info": {
+          "package_name": "com.fortress.options"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxV0K1F4dQIO8MZ8QvHsjamxKcV6vVi90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
