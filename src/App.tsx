@@ -1255,9 +1255,239 @@ function BottomNav({
   );
 }
 
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+
+type OnboardStep = 'welcome' | 'api-key' | 'security' | 'pin-setup' | 'pin-confirm';
+
+function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: () => void; initialStep?: OnboardStep }) {
+  const [step, setStep] = useState<OnboardStep>(initialStep);
+  const [apiKey, setApiKey] = useState(localStorage.getItem('fortress_api_key') || '');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [tier, setTier] = useState('');
+  const [biometricAvail, setBiometricAvail] = useState(false);
+  const [setupPin, setSetupPin] = useState('');
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+
+  useEffect(() => {
+    // @ts-ignore
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+      import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
+        // @ts-ignore
+        BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
+      }).catch(() => {});
+    }
+  }, []);
+
+  const verifyKey = async () => {
+    if (!apiKey.trim()) return;
+    setVerifying(true);
+    setVerifyError('');
+    localStorage.setItem('fortress_api_key', apiKey.trim());
+    try {
+      const data = await apiFetch('/api/auth/verify');
+      setTier(data.tier);
+      setStep('security');
+    } catch {
+      localStorage.removeItem('fortress_api_key');
+      setVerifyError('Invalid API key. Subscribe at fortress-options.com to get yours.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const chooseBiometrics = async () => {
+    try {
+      const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+      await BiometricAuth.authenticate({ reason: 'Verify your fingerprint to continue', cancelTitle: 'Use PIN instead' });
+      localStorage.setItem('fortress_use_biometric', 'true');
+      if (!localStorage.getItem('fortress_pin')) localStorage.setItem('fortress_pin', 'biometric');
+      onComplete();
+    } catch {
+      setStep('pin-setup');
+    }
+  };
+
+  const handlePinDigit = (d: string) => {
+    if (step === 'pin-setup') {
+      const next = setupPin + d;
+      if (next.length === 4) {
+        setSetupPin(next);
+        setPin('');
+        setPinError('');
+        setTimeout(() => setStep('pin-confirm'), 150);
+      } else {
+        setSetupPin(next);
+      }
+    } else if (step === 'pin-confirm') {
+      const next = pin + d;
+      if (next.length === 4) {
+        if (next === setupPin) {
+          localStorage.setItem('fortress_pin', next);
+          onComplete();
+        } else {
+          setPinError("PINs don't match — try again");
+          setTimeout(() => { setPin(''); setSetupPin(''); setPinError(''); setStep('pin-setup'); }, 800);
+        }
+      } else {
+        setPin(next);
+      }
+    }
+  };
+
+  const handlePinBack = () => {
+    if (step === 'pin-setup') setSetupPin(p => p.slice(0, -1));
+    else setPin(p => p.slice(0, -1));
+  };
+
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+
+  if (step === 'welcome') return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center px-8 gap-8">
+      <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-[0_0_48px_rgba(16,185,129,0.5)]">
+        <Shield className="w-11 h-11 text-black" />
+      </div>
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-white tracking-tight">Fortress Options</h1>
+        <p className="text-zinc-400 mt-3 text-base leading-relaxed">
+          Institutional-grade options plays, scored and filtered for high-probability setups.
+        </p>
+      </div>
+      <button
+        onClick={() => setStep('api-key')}
+        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-2xl transition-colors shadow-[0_0_24px_rgba(16,185,129,0.3)]"
+      >
+        Get Started
+      </button>
+      <p className="text-zinc-600 text-sm text-center">
+        Need a key? Subscribe at <span className="text-emerald-500">fortress-options.com</span>
+      </p>
+    </div>
+  );
+
+  if (step === 'api-key') return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col px-6 pt-14 gap-6">
+      <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+        <KeyRound className="w-6 h-6 text-emerald-400" />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-white">Enter Your API Key</h2>
+        <p className="text-zinc-500 text-sm mt-1">You received this by email after subscribing.</p>
+      </div>
+      <div>
+        <input
+          value={apiKey}
+          onChange={e => { setApiKey(e.target.value); setVerifyError(''); }}
+          placeholder="frt_xxxxxxxxxxxxxxxxxxxx"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3.5 text-white font-mono text-sm placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+        {verifyError && <p className="text-red-400 text-sm mt-2">{verifyError}</p>}
+        {tier && <p className="text-emerald-400 text-sm mt-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Verified — {tier.charAt(0).toUpperCase() + tier.slice(1)} plan</p>}
+      </div>
+      <button
+        onClick={verifyKey}
+        disabled={verifying || !apiKey.trim()}
+        className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 text-black font-bold rounded-2xl transition-colors flex items-center justify-center gap-2"
+      >
+        {verifying ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying…</> : 'Verify & Continue'}
+      </button>
+    </div>
+  );
+
+  if (step === 'security') return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col px-6 pt-14 gap-6">
+      <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+        <Lock className="w-6 h-6 text-emerald-400" />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-white">Secure Your App</h2>
+        <p className="text-zinc-500 text-sm mt-1">Choose how you want to unlock the app each time.</p>
+      </div>
+      <div className="flex flex-col gap-3 mt-2">
+        {biometricAvail && (
+          <button
+            onClick={chooseBiometrics}
+            className="w-full py-5 bg-zinc-900 border border-zinc-700 hover:border-emerald-500/50 rounded-2xl flex items-center gap-4 px-5 transition-colors"
+          >
+            <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center shrink-0">
+              <Fingerprint className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-white font-semibold">Biometrics</p>
+              <p className="text-zinc-500 text-sm">Use fingerprint or face ID</p>
+            </div>
+          </button>
+        )}
+        <button
+          onClick={() => setStep('pin-setup')}
+          className="w-full py-5 bg-zinc-900 border border-zinc-700 hover:border-emerald-500/50 rounded-2xl flex items-center gap-4 px-5 transition-colors"
+        >
+          <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5 text-zinc-300" />
+          </div>
+          <div className="text-left">
+            <p className="text-white font-semibold">PIN Code</p>
+            <p className="text-zinc-500 text-sm">Set a 4-digit PIN</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+
+  // PIN setup / confirm
+  const currentLen = step === 'pin-setup' ? setupPin.length : pin.length;
+  const pinTitle = step === 'pin-setup' ? 'Create Your PIN' : 'Confirm Your PIN';
+  const pinSubtitle = step === 'pin-setup' ? 'Choose a 4-digit PIN to secure the app' : 'Enter your PIN again to confirm';
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center gap-8">
+      <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_32px_rgba(16,185,129,0.4)]">
+        <Shield className="w-9 h-9 text-black" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white text-center">{pinTitle}</h1>
+        <p className="text-sm text-zinc-500 text-center mt-1">{pinSubtitle}</p>
+      </div>
+      <div className="flex gap-4">
+        {[0,1,2,3].map(i => (
+          <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
+            i < currentLen ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600'
+          }`} />
+        ))}
+      </div>
+      {pinError && <p className="text-red-400 text-sm">{pinError}</p>}
+      <div className="grid grid-cols-3 gap-3 w-64">
+        {digits.map((d, i) => (
+          d === '' ? <div key={i} /> :
+          <button
+            key={i}
+            onClick={() => d === '⌫' ? handlePinBack() : handlePinDigit(d)}
+            className="h-16 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 rounded-2xl text-white text-xl font-semibold transition-colors border border-zinc-800"
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+      {biometricAvail && (
+        <button onClick={() => setStep('security')} className="text-zinc-600 text-sm">
+          ← Back to security options
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const hasApiKey = !!localStorage.getItem('fortress_api_key');
+  const hasPin = !!localStorage.getItem('fortress_pin');
+  const [setupDone, setSetupDone] = useState(hasApiKey && hasPin);
+  const onboardStart: OnboardStep = hasApiKey && !hasPin ? 'security' : 'welcome';
   const [locked, setLocked] = useState(true);
   const lastActivity = useRef(Date.now());
   const [tab, setTab] = useState<Tab>('plays');
@@ -1404,6 +1634,13 @@ export default function App() {
 
   const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
   const isOnline = status?.status === 'online';
+
+  if (!setupDone) return (
+    <OnboardingFlow
+      initialStep={onboardStart}
+      onComplete={() => { setSetupDone(true); setLocked(false); loadAll(); }}
+    />
+  );
 
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
 
