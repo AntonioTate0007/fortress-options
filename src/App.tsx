@@ -689,6 +689,78 @@ function CloseModal({
   );
 }
 
+// ─── Telegram Section ─────────────────────────────────────────────────────────
+
+function TelegramSection({ apiKey }: { apiKey: string }) {
+  const [copied, setCopied] = useState(false);
+  const command = `/start ${apiKey || 'frt_your_api_key'}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
+        <span className="text-2xl">✈</span>
+        <div>
+          <p className="text-sm font-semibold text-white">Telegram Push Alerts</p>
+          <p className="text-xs text-zinc-500">Elite — get notified instantly on your phone</p>
+        </div>
+      </div>
+
+      <div className="space-y-4 mb-5">
+        {/* Step 1 */}
+        <div className="bg-zinc-900 rounded-xl p-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 1</p>
+          <p className="text-sm text-zinc-200 mb-2">Tap to open the bot in Telegram:</p>
+          <a
+            href="https://t.me/FortressOptionsBot"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold text-sm rounded-xl py-3 px-4 transition-colors"
+          >
+            <span>✈</span>
+            <span>Open @FortressOptionsBot</span>
+          </a>
+        </div>
+
+        {/* Step 2 */}
+        <div className="bg-zinc-900 rounded-xl p-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 2</p>
+          <p className="text-sm text-zinc-200 mb-3">Copy your link command and send it to the bot:</p>
+          <div className="bg-zinc-800 rounded-xl p-3 mb-3">
+            <code className="text-emerald-400 text-xs break-all select-all">{command}</code>
+          </div>
+          <button
+            onClick={handleCopy}
+            className={`w-full flex items-center justify-center gap-2 font-semibold text-sm rounded-xl py-3 px-4 transition-colors ${
+              copied
+                ? 'bg-emerald-600 text-white'
+                : 'bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-800 text-white'
+            }`}
+          >
+            {copied ? '✓ Copied!' : '⎘ Copy Command'}
+          </button>
+        </div>
+
+        {/* Step 3 */}
+        <div className="bg-zinc-900 rounded-xl p-4">
+          <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 3</p>
+          <p className="text-sm text-zinc-200">The bot confirms — you're connected. That's it!</p>
+        </div>
+      </div>
+
+      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-400 text-center">
+        You'll receive instant alerts when any position hits +20% profit or −10% loss
+      </div>
+    </>
+  );
+}
+
 // ─── Settings Modal ───────────────────────────────────────────────────────────
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -865,38 +937,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {section === 'telegram' && (
-          <>
-            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
-              <span className="text-2xl">✈</span>
-              <div>
-                <p className="text-sm font-semibold text-white">Telegram Push Alerts</p>
-                <p className="text-xs text-zinc-500">Elite — get notified instantly on your phone</p>
-              </div>
-            </div>
-
-            <div className="space-y-4 mb-5">
-              <div className="bg-zinc-900 rounded-xl p-4">
-                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 1</p>
-                <p className="text-sm text-zinc-200">Open Telegram and search for your bot:</p>
-                <p className="text-base font-bold text-emerald-400 mt-1 font-mono">@FortressOptionsBot</p>
-              </div>
-              <div className="bg-zinc-900 rounded-xl p-4">
-                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 2</p>
-                <p className="text-sm text-zinc-200 mb-2">Send this message to the bot:</p>
-                <div className="bg-zinc-800 rounded-lg p-3 flex items-center justify-between gap-2">
-                  <code className="text-emerald-400 text-xs break-all">/start {apiKey || 'frt_your_api_key'}</code>
-                </div>
-              </div>
-              <div className="bg-zinc-900 rounded-xl p-4">
-                <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Step 3</p>
-                <p className="text-sm text-zinc-200">The bot confirms — you're connected. That's it!</p>
-              </div>
-            </div>
-
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-400 text-center">
-              You'll receive instant alerts when any position hits +20% profit or −10% loss
-            </div>
-          </>
+          <TelegramSection apiKey={apiKey} />
         )}
 
         {/* Version footer */}
