@@ -7,7 +7,7 @@ __pycache__/
 
 # Node
 node_modules/
-dist/
+# dist/ is committed so Render can serve the React app without a Node build step
 
 # Android build
 android/app/build/
