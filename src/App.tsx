@@ -105,6 +105,47 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
+// ─── Market hours helpers ─────────────────────────────────────────────────────
+
+/** Returns ET hour + minute as fractional hours (e.g. 9.5 = 9:30 AM ET). */
+function etHour(): number {
+  const now = new Date();
+  // Intl gives us the wall-clock time in ET without depending on the host TZ
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(now);
+  const h = parseInt(parts.find(p => p.type === 'hour')!.value, 10);
+  const m = parseInt(parts.find(p => p.type === 'minute')!.value, 10);
+  return h + m / 60;
+}
+
+function etWeekday(): number {
+  const now = new Date();
+  // Create a Date parsed from ET local time string to get the correct day-of-week
+  const etDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  return etDate.getDay(); // 0=Sun … 6=Sat
+}
+
+/** True if the US equity market is currently open (Mon–Fri 9:30–16:00 ET). */
+function isMarketOpen(): boolean {
+  const wd = etWeekday();
+  if (wd === 0 || wd === 6) return false;
+  const h = etHour();
+  return h >= 9.5 && h < 16;
+}
+
+/**
+ * True if we're in the first 30 minutes after market open (9:30–10:00 ET) —
+ * the "market settling" window where plays are actively being scanned.
+ */
+function isMarketJustOpened(): boolean {
+  const wd = etWeekday();
+  if (wd === 0 || wd === 6) return false;
+  const h = etHour();
+  return h >= 9.5 && h < 10.0;
+}
+
 // ─── Shared Components ────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }: { score: number }) {
@@ -1166,10 +1207,33 @@ function PlaysScreen({
           <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
         </div>
       ) : plays.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-zinc-600 gap-3">
-          <Target className="w-14 h-14 opacity-20" />
-          <p className="font-medium text-zinc-500">No plays found</p>
-          <p className="text-sm text-zinc-600">Tap Scan to check the market</p>
+        <div className="flex flex-col items-center py-20 text-zinc-600 gap-3 px-6 text-center">
+          {isMarketJustOpened() ? (
+            <>
+              <div className="relative">
+                <Target className="w-14 h-14 opacity-20" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500" />
+              </div>
+              <p className="font-semibold text-zinc-400">Scanning for plays…</p>
+              <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
+                Market just opened at 9:30 AM ET. The scanner is running — plays appear once
+                liquidity settles (usually within 5–10 minutes).
+              </p>
+            </>
+          ) : isMarketOpen() ? (
+            <>
+              <Target className="w-14 h-14 opacity-20" />
+              <p className="font-medium text-zinc-500">No plays found</p>
+              <p className="text-sm text-zinc-600">Tap Scan to check the market</p>
+            </>
+          ) : (
+            <>
+              <Target className="w-14 h-14 opacity-20" />
+              <p className="font-medium text-zinc-500">Market is closed</p>
+              <p className="text-sm text-zinc-600">Scanner runs Mon–Fri 9:30 AM – 4:00 PM ET</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="px-4 py-4 space-y-4">

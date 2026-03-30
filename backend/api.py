@@ -302,12 +302,151 @@ def update_positions():
             print(f"Position update error {pos['id']}: {e}")
 
 
+# ─── Weekly Earnings Briefing ────────────────────────────────────────────────
+
+
+def send_weekly_earnings_briefing():
+    """
+    Runs Friday ~8:30 AM ET.  Scans the watchlist for the highest-profile
+    earnings report coming up in the next 5 trading days, then sends a
+    3-strategy Telegram briefing (Safe / Aggressive / Neutral) to all Elite
+    subscribers who have linked Telegram.
+    """
+    from telegram_bot import send_message as tg_send
+    import datetime as dt
+
+    et = ZoneInfo("America/New_York")
+    today = dt.date.today()
+    window_end = today + dt.timedelta(days=7)
+
+    print(f"[{datetime.now():%H:%M:%S}] Running weekly earnings briefing scan…")
+
+    # ── Find the best earnings candidate in the watchlist ─────────────────────
+    best = None          # (symbol, date, market_cap, price, beta, timing)
+    for symbol in WATCHLIST:
+        try:
+            tk = yf.Ticker(symbol)
+            info = tk.info or {}
+            price = info.get("regularMarketPrice") or info.get("currentPrice", 0)
+            mktcap = info.get("marketCap", 0)
+            beta = info.get("beta", 1.0) or 1.0
+
+            # yfinance earnings dates
+            df = tk.get_earnings_dates(limit=8)
+            if df is None or df.empty:
+                continue
+            for idx in df.index:
+                edate = idx.date() if hasattr(idx, "date") else idx
+                if today < edate <= window_end:
+                    timing = "Before Market Open" if idx.hour < 12 else "After Market Close"
+                    if best is None or mktcap > best[2]:
+                        best = (symbol, edate, mktcap, price, beta, timing)
+                    break
+        except Exception as e:
+            print(f"  Earnings scan {symbol}: {e}")
+
+    if best is None:
+        print("[Briefing] No earnings found in watchlist this week.")
+        # Still send a "quiet week" notice
+        msg = (
+            "📅 <b>Fortress Weekly Briefing</b>\n\n"
+            "No major earnings this week for our 8 watched tickers.\n"
+            "The scanner will run as normal Mon–Fri 9:30 AM – 4:00 PM ET.\n\n"
+            "<i>Happy trading! 🏰</i>"
+        )
+    else:
+        symbol, edate, mktcap, price, beta, timing = best
+        if not price or price <= 0:
+            print(f"[Briefing] No price for {symbol}, skipping.")
+            return
+
+        # ── Calculate strikes ─────────────────────────────────────────────────
+        # Safe: put credit spread ~10% OTM
+        safe_short = round(price * 0.90 / 5) * 5
+        safe_long  = safe_short - SPREAD_WIDTH
+
+        # Aggressive: call credit spread just above price
+        agg_short = round(price * 1.03 / 5) * 5
+        agg_long  = agg_short + SPREAD_WIDTH
+
+        # Neutral condor: combine both
+        condor_put_short = safe_short
+        condor_put_long  = safe_long
+        condor_call_short = round(price * 1.08 / 5) * 5
+        condor_call_long  = condor_call_short + SPREAD_WIDTH
+
+        # ── Market sentiment ──────────────────────────────────────────────────
+        try:
+            spy = yf.Ticker("SPY")
+            spy_hist = spy.history(period="5d")
+            if len(spy_hist) >= 2:
+                spy_chg = (spy_hist["Close"].iloc[-1] / spy_hist["Close"].iloc[0] - 1) * 100
+            else:
+                spy_chg = 0.0
+        except Exception:
+            spy_chg = 0.0
+
+        if spy_chg >= 1:
+            sentiment = "🟢 Risk-On — market trending up"
+            rec = "Strategy 1 (Safe Put Spread)"
+        elif spy_chg <= -1:
+            sentiment = "🔴 Risk-Off — market in a downtrend"
+            rec = "Strategy 2 (Aggressive Bear Call Spread)"
+        else:
+            sentiment = "🟡 Neutral — choppy market"
+            rec = "Strategy 3 (Iron Condor)"
+
+        beta_label = "low-beta (stable)" if beta < 0.8 else "high-beta (volatile)" if beta > 1.3 else "mid-beta"
+        day_name = edate.strftime("%A, %b ") + str(edate.day)
+
+        msg = (
+            f"📅 <b>Fortress Weekly Earnings Briefing</b>\n\n"
+            f"<b>Top Play:</b> <code>{symbol}</code>\n"
+            f"Reports <b>{day_name}</b> — {timing}\n"
+            f"Current price: <b>${price:.2f}</b>  ·  Beta: {beta:.2f} ({beta_label})\n\n"
+            f"<b>Market Sentiment:</b> {sentiment}\n"
+            f"SPY 5-day move: {spy_chg:+.1f}%\n\n"
+            "─────────────────\n"
+            "✅ <b>Strategy 1 — Safe (Put Credit Spread)</b>\n"
+            f"Sell <b>${safe_short:.0f}P</b> / Buy <b>${safe_long:.0f}P</b>  ·  10% OTM cushion\n"
+            f"Best when: confident the stock won't crash through ${safe_short:.0f}\n\n"
+            "⚡ <b>Strategy 2 — Aggressive (Bear Call Spread)</b>\n"
+            f"Sell <b>${agg_short:.0f}C</b> / Buy <b>${agg_long:.0f}C</b>  ·  just above price\n"
+            f"Best when: expecting 'sell the news' after earnings\n\n"
+            "⚖️ <b>Strategy 3 — Neutral (Iron Condor)</b>\n"
+            f"Puts: Sell <b>${condor_put_short:.0f}P</b> / Buy <b>${condor_put_long:.0f}P</b>\n"
+            f"Calls: Sell <b>${condor_call_short:.0f}C</b> / Buy <b>${condor_call_long:.0f}C</b>\n"
+            f"Best when: expecting a boring post-earnings drift\n\n"
+            "─────────────────\n"
+            f"⚠️ <b>Fortress Warning:</b> Earnings week = elevated IV. "
+            f"Reduce size if you're in multiple positions.\n\n"
+            f"🏆 <b>My Recommendation:</b> {rec}\n\n"
+            "<i>Open the app to scan for live plays. 🏰</i>"
+        )
+
+    # ── Broadcast to Elite Telegram subscribers ───────────────────────────────
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT telegram_chat_id FROM subscribers "
+            "WHERE tier='elite' AND status='active' AND telegram_chat_id IS NOT NULL"
+        ).fetchall()
+    sent = 0
+    for row in rows:
+        if tg_send(row["telegram_chat_id"], msg):
+            sent += 1
+    print(f"[Briefing] Sent to {sent} Elite subscriber(s).")
+
+
 # ─── Background Thread ────────────────────────────────────────────────────────
 
 
 def background_loop():
     sch.every(30).minutes.do(scan_and_save)
     sch.every(5).minutes.do(update_positions)
+
+    # Weekly earnings briefing — Fridays at 8:30 AM ET
+    et = ZoneInfo("America/New_York")
+    sch.every().friday.at("08:30").do(send_weekly_earnings_briefing)
 
     # Run immediately on startup
     scan_and_save()
@@ -485,6 +624,16 @@ def admin_notify(message: str, admin_key: str = ""):
         if tg_send(row["telegram_chat_id"], message):
             sent += 1
     return {"sent": sent, "total_elite_linked": len(rows)}
+
+
+@app.post("/api/admin/earnings-briefing")
+def trigger_earnings_briefing(admin_key: str = ""):
+    """Admin: manually trigger the weekly earnings briefing (for testing)."""
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    t = threading.Thread(target=send_weekly_earnings_briefing, daemon=True)
+    t.start()
+    return {"message": "Earnings briefing started"}
 
 
 @app.get("/api/auth/verify")
