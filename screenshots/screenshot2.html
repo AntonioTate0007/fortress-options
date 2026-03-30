@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=390, initial-scale=1.0">
+<title>Play Reasoning</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 390px;
+    height: 844px;
+    background: #0A0A0B;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    color: #fff;
+    overflow: hidden;
+    position: relative;
+  }
+  /* Dimmed background overlay effect */
+  .bg-dim {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1;
+  }
+  /* Partially visible background card */
+  .bg-card {
+    position: absolute;
+    top: 60px;
+    left: 14px; right: 14px;
+    background: #161618;
+    border-radius: 16px;
+    border: 1px solid #27272a;
+    height: 140px;
+    padding: 14px;
+    opacity: 0.4;
+  }
+  .status-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .status-icons { display: flex; gap: 6px; align-items: center; }
+  /* Modal sheet */
+  .modal {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: #111113;
+    border-radius: 24px 24px 0 0;
+    border-top: 1px solid #27272a;
+    padding: 0 0 24px;
+    height: 720px;
+    overflow: hidden;
+  }
+  .modal-handle {
+    width: 40px;
+    height: 4px;
+    background: #3f3f46;
+    border-radius: 2px;
+    margin: 12px auto 16px;
+  }
+  .modal-header {
+    padding: 0 18px 14px;
+    border-bottom: 1px solid #1f1f22;
+  }
+  .modal-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-symbol-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-symbol {
+    font-size: 24px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .modal-score {
+    background: #064e3b;
+    color: #10b981;
+    font-size: 15px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1.5px solid #10b981;
+  }
+  .modal-subtitle {
+    font-size: 12px;
+    color: #71717a;
+    margin-top: 4px;
+  }
+  .close-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #27272a;
+    color: #a1a1aa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .categories-label {
+    padding: 14px 18px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .cat-list {
+    padding: 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cat-card {
+    background: #161618;
+    border-radius: 14px;
+    border: 1px solid #27272a;
+    padding: 12px 14px;
+  }
+  .cat-card.full {
+    border-color: #064e3b;
+  }
+  .cat-card.partial {
+    border-color: #1c1c1e;
+  }
+  .cat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .cat-name-row { display: flex; align-items: center; gap: 8px; }
+  .cat-icon { font-size: 14px; }
+  .cat-name { font-size: 13px; font-weight: 700; color: #e4e4e7; }
+  .cat-score-full {
+    font-size: 12px;
+    font-weight: 800;
+    color: #10b981;
+  }
+  .cat-score-partial {
+    font-size: 12px;
+    font-weight: 800;
+    color: #f59e0b;
+  }
+  .cat-score-zero {
+    font-size: 12px;
+    font-weight: 800;
+    color: #71717a;
+  }
+  .progress-bar {
+    height: 5px;
+    background: #27272a;
+    border-radius: 3px;
+    margin-bottom: 7px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #059669, #10b981);
+  }
+  .progress-fill.yellow {
+    background: linear-gradient(90deg, #d97706, #f59e0b);
+  }
+  .progress-fill.gray {
+    background: #3f3f46;
+    width: 0%;
+  }
+  .cat-desc {
+    font-size: 11px;
+    color: #71717a;
+    line-height: 1.4;
+  }
+  .cta-wrap {
+    padding: 14px 14px 0;
+  }
+  .cta-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    letter-spacing: 0.2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Background dim -->
+<div class="bg-dim"></div>
+
+<!-- Background card (behind modal) -->
+<div class="bg-card">
+  <div style="font-size:18px;font-weight:800;color:#fff;">NVDA</div>
+  <div style="font-size:22px;font-weight:800;color:#10b981;margin-top:4px;">$1.24</div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span>9:41</span>
+  <div class="status-icons">
+    <svg width="16" height="11" viewBox="0 0 16 11" fill="white"><rect x="0" y="4" width="3" height="7" rx="0.5"/><rect x="4.5" y="2.5" width="3" height="8.5" rx="0.5"/><rect x="9" y="0.5" width="3" height="10.5" rx="0.5"/><rect x="13.5" y="0" width="2" height="11" rx="0.5" opacity="0.3"/></svg>
+    <svg width="15" height="11" viewBox="0 0 15 11" fill="white"><path d="M7.5 2.2C9.7 2.2 11.7 3.1 13.1 4.6L14.5 3.1C12.7 1.2 10.2 0 7.5 0C4.8 0 2.3 1.2 0.5 3.1L1.9 4.6C3.3 3.1 5.3 2.2 7.5 2.2Z" opacity="0.4"/><path d="M7.5 5.2C9 5.2 10.3 5.8 11.3 6.8L12.7 5.3C11.3 3.9 9.5 3 7.5 3C5.5 3 3.7 3.9 2.3 5.3L3.7 6.8C4.7 5.8 6 5.2 7.5 5.2Z" opacity="0.7"/><circle cx="7.5" cy="9" r="2"/></svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/><rect x="2" y="2" width="17" height="8" rx="2" fill="white"/><path d="M23 4v4a2 2 0 000-4z" fill="white" opacity="0.4"/></svg>
+  </div>
+</div>
+
+<!-- Modal Sheet -->
+<div class="modal">
+  <div class="modal-handle"></div>
+
+  <div class="modal-header">
+    <div class="modal-title-row">
+      <div class="modal-symbol-group">
+        <span class="modal-symbol">NVDA</span>
+        <span class="modal-score">9/10</span>
+      </div>
+      <div class="close-btn">✕</div>
+    </div>
+    <div class="modal-subtitle">Score breakdown · Bull Put Spread · Apr 7</div>
+  </div>
+
+  <div class="categories-label">Why this play scored well</div>
+
+  <div class="cat-list">
+
+    <!-- Premium Quality 3/3 -->
+    <div class="cat-card full">
+      <div class="cat-top">
+        <div class="cat-name-row">
+          <span class="cat-icon">💰</span>
+          <span class="cat-name">Premium Quality</span>
+        </div>
+        <span class="cat-score-full">3/3</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="cat-desc">Credit of $1.24 is excellent — covers 24.8% return on max risk. Top tier reward for the spread width.</div>
+    </div>
+
+    <!-- Safety Buffer 2/2 -->
+    <div class="cat-card full">
+      <div class="cat-top">
+        <div class="cat-name-row">
+          <span class="cat-icon">🛡️</span>
+          <span class="cat-name">Safety Buffer</span>
+        </div>
+        <span class="cat-score-full">2/2</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="cat-desc">Short strike $890 is 6.2% below current price. Stock needs to drop significantly before you lose.</div>
+    </div>
+
+    <!-- Liquidity 2/2 -->
+    <div class="cat-card full">
+      <div class="cat-top">
+        <div class="cat-name-row">
+          <span class="cat-icon">🌊</span>
+          <span class="cat-name">Liquidity</span>
+        </div>
+        <span class="cat-score-full">2/2</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="cat-desc">Volume 892 + OI 3,241 means tight spreads and easy fills. No slippage risk on entry or exit.</div>
+    </div>
+
+    <!-- DTE 2/2 -->
+    <div class="cat-card full">
+      <div class="cat-top">
+        <div class="cat-name-row">
+          <span class="cat-icon">📅</span>
+          <span class="cat-name">Days to Expiry</span>
+        </div>
+        <span class="cat-score-full">2/2</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      <div class="cat-desc">9 days is the theta sweet spot — fast decay without too much gamma risk near expiry.</div>
+    </div>
+
+    <!-- IV 0/1 -->
+    <div class="cat-card partial">
+      <div class="cat-top">
+        <div class="cat-name-row">
+          <span class="cat-icon">📊</span>
+          <span class="cat-name">Implied Volatility</span>
+        </div>
+        <span class="cat-score-zero">0/1</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill gray" style="width:0%"></div></div>
+      <div class="cat-desc">IV at 42% is moderate. Ideal plays have IV rank above 50% for premium selling edge.</div>
+    </div>
+
+  </div>
+
+  <div class="cta-wrap">
+    <button class="cta-btn">🔥 Track this play</button>
+  </div>
+</div>
+
+</body>
+</html>
