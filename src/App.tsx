@@ -700,11 +700,19 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [pinSuccess, setPinSuccess] = useState('');
   const [section, setSection] = useState<'connection' | 'security' | 'telegram'>('connection');
   const [tier, setTier] = useState<string | null>(null);
+  const [biometricAvail, setBiometricAvail] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('fortress_use_biometric') === 'true');
 
   useEffect(() => {
-    if (!apiKey) return;
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
-  }, [apiKey]);
+    // @ts-ignore
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+      import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
+        // @ts-ignore
+        BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
+      }).catch(() => {});
+    }
+  }, []);
 
   const saveConnection = () => {
     localStorage.removeItem('fortress_server'); // clear any old local IP
@@ -737,7 +745,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {/* Tabs */}
         <div className="flex bg-zinc-900 rounded-xl p-1 mb-5">
-          {(['connection', 'security', ...(tier === 'elite' ? ['telegram'] : [])] as const).map((s: any) => (
+          {(['connection', 'security', 'telegram'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSection(s)}
@@ -776,11 +784,37 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {section === 'security' && (
           <>
-            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
+            {biometricAvail && (
+              <button
+                onClick={() => {
+                  const next = !biometricEnabled;
+                  setBiometricEnabled(next);
+                  if (next) {
+                    localStorage.setItem('fortress_use_biometric', 'true');
+                  } else {
+                    localStorage.removeItem('fortress_use_biometric');
+                  }
+                }}
+                className="w-full flex items-center justify-between bg-zinc-900 rounded-2xl p-4 mb-4 border border-zinc-800"
+              >
+                <div className="flex items-center gap-3">
+                  <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-white">Biometric Unlock</p>
+                    <p className="text-xs text-zinc-500">Use fingerprint or face ID to unlock</p>
+                  </div>
+                </div>
+                <div className={`w-11 h-6 rounded-full transition-colors relative ${biometricEnabled ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${biometricEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+              </button>
+            )}
+
+            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5 border border-zinc-800">
               <Lock className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-white">PIN Lock</p>
-                <p className="text-xs text-zinc-500">App locks automatically when closed</p>
+                <p className="text-xs text-zinc-500">App locks automatically after 5 min</p>
               </div>
             </div>
 
@@ -827,14 +861,10 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             >
               Update PIN
             </button>
-
-            <p className="text-xs text-zinc-600 mt-3 text-center">
-              Default PIN is <code className="text-zinc-500">1234</code> — change it now for security
-            </p>
           </>
         )}
 
-        {section === 'telegram' && tier === 'elite' && (
+        {section === 'telegram' && (
           <>
             <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5">
               <span className="text-2xl">✈</span>
@@ -870,7 +900,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.2.0</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.4.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
