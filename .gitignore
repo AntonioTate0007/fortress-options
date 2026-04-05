@@ -14,9 +14,9 @@ android/app/build/
 android/.gradle/
 android/local.properties
 
-# APK outputs
+# APK outputs — website APKs are tracked for distribution
 *.apk
-website/fortress-options.apk
+!website/fortress-options*.apk
 
 # Misc
 .DS_Store
