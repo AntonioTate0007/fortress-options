@@ -74,12 +74,44 @@
       }
     </script>
 <style>
-        body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; }
+        body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; transition: background-color 0.3s, color 0.3s; }
         .font-headline { font-family: 'Manrope', sans-serif; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .glass-panel { background: rgba(32, 31, 31, 0.6); backdrop-filter: blur(20px); }
         .glow-primary { box-shadow: 0 0 20px rgba(117, 255, 158, 0.15); }
         .hero-gradient { background: radial-gradient(circle at 50% 50%, rgba(0, 230, 118, 0.05) 0%, transparent 70%); }
+
+        /* ── Light mode overrides ── */
+        html:not(.dark) body { background-color: #f4f7f4; color: #1a2e1c; }
+        html:not(.dark) header { background-color: rgba(255,255,255,0.95) !important; border-bottom: 1px solid #ddeadf; }
+        html:not(.dark) header a, html:not(.dark) header span { color: #1a2e1c !important; }
+        html:not(.dark) .bg-background, html:not(.dark) .bg-surface-dim { background-color: #f4f7f4 !important; }
+        html:not(.dark) .bg-surface-container { background-color: #ffffff !important; border-color: #ddeadf !important; }
+        html:not(.dark) .bg-surface-container-highest { background-color: #eef4ef !important; }
+        html:not(.dark) .bg-surface-container-high { background-color: #e6efe7 !important; }
+        html:not(.dark) .bg-surface-bright { background-color: #e6efe7 !important; }
+        html:not(.dark) .text-on-surface, html:not(.dark) .text-\[\#E5E2E1\] { color: #1a2e1c !important; }
+        html:not(.dark) .text-on-surface-variant, html:not(.dark) .text-\[\#BACBB9\] { color: #4a6b50 !important; }
+        html:not(.dark) .text-primary { color: #006d35 !important; }
+        html:not(.dark) .border-primary { border-color: #006d35 !important; }
+        html:not(.dark) .border-2.border-primary { border-color: #006d35 !important; box-shadow: 0 0 40px rgba(0,109,53,0.08) !important; }
+        html:not(.dark) .border-outline-variant\/30, html:not(.dark) [class*="border-outline-variant"] { border-color: #ddeadf !important; }
+        html:not(.dark) .glass-panel { background: rgba(255,255,255,0.85) !important; }
+        html:not(.dark) .hero-gradient { background: radial-gradient(circle at 50% 50%, rgba(0,109,53,0.04) 0%, transparent 70%) !important; }
+        html:not(.dark) .bg-primary { background-color: #006d35 !important; }
+        html:not(.dark) .text-on-primary, html:not(.dark) .text-on-primary-fixed { color: #ffffff !important; }
+        html:not(.dark) .bg-gradient-to-r { background: linear-gradient(to right, #006d35, #009648) !important; }
+        html:not(.dark) .shadow-\[0_0_40px_rgba\(117\,255\,158\,0\.1\)\] { box-shadow: 0 0 40px rgba(0,109,53,0.08) !important; }
+        html:not(.dark) .shadow-\[0_8px_20px_rgba\(117\,255\,158\,0\.2\)\] { box-shadow: 0 8px 20px rgba(0,109,53,0.15) !important; }
+        html:not(.dark) .shadow-\[0_12px_24px_rgba\(0\,230\,118\,0\.15\)\] { box-shadow: 0 12px 24px rgba(0,109,53,0.15) !important; }
+        html:not(.dark) input { background-color: #eef4ef !important; color: #1a2e1c !important; border-color: #ddeadf !important; }
+        html:not(.dark) #checkout-modal > div { background-color: #ffffff !important; border-color: #ddeadf !important; }
+        html:not(.dark) .bg-\[#161618\], html:not(.dark) .bg-\[#0A0A0B\] { background-color: #f4f7f4 !important; }
+        html:not(.dark) [style*="background:#0A0A0B"], html:not(.dark) [style*="background: #0A0A0B"] { background: #ffffff !important; }
+        html:not(.dark) footer { background-color: #1a2e1c !important; }
+        html:not(.dark) footer * { color: #b8d4bc !important; }
+        html:not(.dark) footer a:hover { color: #75ff9e !important; }
+        * { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease; }
     </style>
 </head>
 <body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
@@ -101,7 +133,10 @@
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#pricing">Pricing</a>
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="mailto:support@fortress-options.com">Support</a>
 </div>
-<div class="flex items-center gap-4">
+<div class="flex items-center gap-3">
+<button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-all">
+  <span id="theme-icon" class="material-symbols-outlined text-on-surface-variant text-[18px]">light_mode</span>
+</button>
 <a href="https://fortress-options.com/fortress-options.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
 </div>
 </nav>
@@ -551,6 +586,26 @@
 </div>
 
 <script>
+  // ── Theme toggle ──────────────────────────────────────────────────────────
+  function applyTheme(dark) {
+    const html = document.documentElement;
+    const icon = document.getElementById('theme-icon');
+    if (dark) {
+      html.classList.add('dark');
+      if (icon) icon.textContent = 'light_mode';
+    } else {
+      html.classList.remove('dark');
+      if (icon) icon.textContent = 'dark_mode';
+    }
+  }
+  function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('fortress-theme', isDark ? 'light' : 'dark');
+    applyTheme(!isDark);
+  }
+  // Init from saved preference, default dark
+  applyTheme(localStorage.getItem('fortress-theme') !== 'light');
+
   const API = 'https://fortress-options.onrender.com';
   let selectedTier = '';
   let selectedBilling = 'monthly';
