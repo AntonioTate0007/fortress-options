@@ -100,14 +100,15 @@
 </a>
 <div class="hidden md:flex items-center gap-8">
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#how-it-works">How It Works</a>
+<a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#earnings">Earnings</a>
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="#pricing">Pricing</a>
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="mailto:support@fortress-options.com">Support</a>
 </div>
 <div class="flex items-center gap-3">
-<button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-all">
-  <span id="theme-icon" class="material-symbols-outlined text-on-surface-variant text-[18px]">light_mode</span>
+<button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-primary/50 hover:bg-surface-container transition-all">
+  <span id="theme-icon" class="material-symbols-outlined text-primary text-[20px]">light_mode</span>
 </button>
-<a href="https://fortress-options.com/fortress-options-v1.1.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+<a href="/fortress-options-v1.1.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
 </div>
 </nav>
 </header>
@@ -128,7 +129,7 @@
                     The Obsidian Command Center for mobile traders. Sophisticated Greeks, real-time risk metrics, and one-tap execution in a professional dark-mode interface.
                 </p>
 <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-<a href="https://fortress-options.com/fortress-options-v1.1.0.apk" class="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
+<a href="/fortress-options-v1.1.0.apk" class="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
 <span class="material-symbols-outlined" data-icon="android" style="font-variation-settings: 'FILL' 1;">android</span>
                         Download APK v1.1.0
                     </a>
@@ -459,22 +460,87 @@
   </div>
 </div>
 </section>
+<!-- Upcoming Earnings Section -->
+<section id="earnings" class="py-24 px-6 border-t border-outline-variant/20">
+<div class="max-w-5xl mx-auto">
+  <div class="text-center mb-12">
+    <span class="text-xs font-bold uppercase tracking-widest text-primary mb-3 block">Earnings Calendar</span>
+    <h2 class="text-4xl md:text-5xl font-headline font-extrabold mb-4 tracking-tighter">Upcoming Earnings</h2>
+    <p class="text-on-surface-variant text-lg max-w-xl mx-auto">High-volatility earnings plays delivered to your app the moment the market opens. Elite subscribers get Telegram alerts instantly.</p>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <!-- Earnings cards — next ~2 weeks of major reports -->
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">AAPL</span>
+        <span class="text-xs font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">Apple Inc.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>May 1, 2025
+      </div>
+    </div>
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">AMZN</span>
+        <span class="text-xs font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">Amazon.com Inc.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>May 1, 2025
+      </div>
+    </div>
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">MSFT</span>
+        <span class="text-xs font-bold bg-surface-variant text-on-surface-variant border border-outline-variant/30 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">Microsoft Corp.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>Apr 30, 2025
+      </div>
+    </div>
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">META</span>
+        <span class="text-xs font-bold bg-surface-variant text-on-surface-variant border border-outline-variant/30 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">Meta Platforms Inc.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>Apr 30, 2025
+      </div>
+    </div>
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">GOOGL</span>
+        <span class="text-xs font-bold bg-surface-variant text-on-surface-variant border border-outline-variant/30 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">Alphabet Inc.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>Apr 29, 2025
+      </div>
+    </div>
+    <div class="rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-3 hover:border-primary/40 transition-all">
+      <div class="flex items-center justify-between">
+        <span class="text-xl font-extrabold font-headline">NVDA</span>
+        <span class="text-xs font-bold bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded-full">After Close</span>
+      </div>
+      <p class="text-on-surface-variant text-sm">NVIDIA Corp.</p>
+      <div class="mt-auto flex items-center gap-2 text-xs text-on-surface-variant">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span>May 28, 2025
+      </div>
+    </div>
+  </div>
+  <p class="text-center text-on-surface-variant text-sm mt-8">Pro &amp; Elite subscribers get AI-scored options plays for every earnings report automatically.</p>
+</div>
+</section>
+
 <!-- Pricing Section -->
 <section id="pricing" class="py-24 px-6">
 <div class="max-w-6xl mx-auto">
   <div class="text-center mb-10">
     <h2 class="text-4xl md:text-6xl font-headline font-extrabold mb-4 tracking-tighter">Simple Pricing</h2>
     <p class="text-on-surface-variant text-lg">Start free. Upgrade when you're ready. Cancel anytime.</p>
-  </div>
-
-  <!-- Billing toggle -->
-  <div class="flex justify-center mb-10">
-    <div class="inline-flex items-center bg-surface-container border border-outline-variant/30 rounded-full p-1 gap-1">
-      <button id="toggle-monthly" onclick="setBilling('monthly')" class="px-5 py-2 rounded-full text-sm font-semibold transition-all bg-primary text-on-primary">Monthly</button>
-      <button id="toggle-annual" onclick="setBilling('annual')" class="px-5 py-2 rounded-full text-sm font-semibold transition-all text-on-surface-variant hover:text-on-surface">
-        Annual <span class="ml-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">2 months free</span>
-      </button>
-    </div>
   </div>
 
   <div class="grid md:grid-cols-3 gap-6">
@@ -486,7 +552,6 @@
           <span id="basic-price" class="text-5xl font-extrabold font-headline">$29</span>
           <span class="text-on-surface-variant mb-1">/mo</span>
         </div>
-        <p id="basic-billing" class="text-on-surface-variant text-xs mt-1 h-4"></p>
         <p class="text-on-surface-variant text-sm mt-1">SPY &amp; QQQ plays only</p>
       </div>
       <ul class="space-y-3 mb-8 flex-1 text-sm">
@@ -496,7 +561,7 @@
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>API key via email</li>
         <li class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-base">remove</span>Telegram alerts</li>
       </ul>
-      <button onclick="startCheckout('basic')" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Get Started</button>
+      <button onclick="startCheckout('basic')" id="basic-btn" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Get Started</button>
     </div>
     <!-- Pro (highlighted) -->
     <div class="rounded-2xl border-2 border-primary bg-surface-container p-8 flex flex-col relative shadow-[0_0_40px_rgba(117,255,158,0.1)]">
@@ -507,7 +572,6 @@
           <span id="pro-price" class="text-5xl font-extrabold font-headline">$59</span>
           <span class="text-on-surface-variant mb-1">/mo</span>
         </div>
-        <p id="pro-billing" class="text-on-surface-variant text-xs mt-1 h-4"></p>
         <p class="text-on-surface-variant text-sm mt-1">Full watchlist + earnings plays</p>
       </div>
       <ul class="space-y-3 mb-8 flex-1 text-sm">
@@ -527,7 +591,6 @@
           <span id="elite-price" class="text-5xl font-extrabold font-headline">$99</span>
           <span class="text-on-surface-variant mb-1">/mo</span>
         </div>
-        <p id="elite-billing" class="text-on-surface-variant text-xs mt-1 h-4"></p>
         <p class="text-on-surface-variant text-sm mt-1">Full access + Telegram alerts</p>
       </div>
       <ul class="space-y-3 mb-8 flex-1 text-sm">
@@ -537,7 +600,7 @@
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Early feature access</li>
         <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base" style="font-variation-settings:'FILL' 1;">check_circle</span>Earnings plays</li>
       </ul>
-      <button onclick="startCheckout('elite')" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Go Elite</button>
+      <button onclick="startCheckout('elite')" id="elite-btn" class="w-full py-3 rounded-xl border border-primary text-primary font-bold hover:bg-primary hover:text-on-primary transition-all">Go Elite</button>
     </div>
   </div>
   <p class="text-center text-on-surface-variant text-sm mt-8">3-day free trial on all plans · No charge until day 4 · Cancel anytime</p>
@@ -612,38 +675,6 @@
 
   const API = 'https://fortress-options.onrender.com';
   let selectedTier = '';
-  let selectedBilling = 'monthly';
-
-  const PRICES = {
-    monthly: { basic: '$29', pro: '$59', elite: '$99' },
-    annual:  { basic: '$24', pro: '$49', elite: '$82' },
-  };
-  const ANNUAL_TOTALS = { basic: '$290/yr', pro: '$590/yr', elite: '$990/yr' };
-
-  function setBilling(billing) {
-    selectedBilling = billing;
-    const isAnnual = billing === 'annual';
-
-    // Toggle button styles
-    document.getElementById('toggle-monthly').className =
-      'px-5 py-2 rounded-full text-sm font-semibold transition-all ' +
-      (isAnnual ? 'text-on-surface-variant hover:text-on-surface' : 'bg-primary text-on-primary');
-    document.getElementById('toggle-annual').className =
-      'px-5 py-2 rounded-full text-sm font-semibold transition-all ' +
-      (isAnnual ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-on-surface');
-
-    // Update prices
-    ['basic', 'pro', 'elite'].forEach(tier => {
-      document.getElementById(`${tier}-price`).textContent = PRICES[billing][tier];
-      document.getElementById(`${tier}-billing`).textContent =
-        isAnnual ? `Billed ${ANNUAL_TOTALS[tier]} — save 2 months` : '';
-    });
-
-    // Update Pro button label
-    const proBtn = document.getElementById('pro-btn');
-    if (proBtn) proBtn.textContent = isAnnual ? 'Subscribe — $490/yr' : 'Subscribe — $59/mo';
-  }
-
   // Pre-warm Render on page load so checkout is instant
   fetch(`${API}/api/status`).catch(() => {});
 
@@ -671,7 +702,7 @@
         body: JSON.stringify({
           email,
           tier: selectedTier,
-          billing: selectedBilling,
+          billing: 'monthly',
           success_url: window.location.origin + window.location.pathname + '?payment=success',
           cancel_url: window.location.origin + window.location.pathname + '#pricing'
         })
@@ -706,7 +737,7 @@
 <h2 class="text-4xl md:text-6xl font-headline font-extrabold mb-8 tracking-tighter">Ready for the Next Level?</h2>
 <p class="text-on-surface-variant text-lg mb-12 max-w-xl mx-auto">Subscribe, download the app, and start getting high-probability options plays delivered to your phone.</p>
 <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
-<a href="https://fortress-options.com/fortress-options-v1.1.0.apk" class="flex items-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
+<a href="/fortress-options-v1.1.0.apk" class="flex items-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
   <span class="material-symbols-outlined" data-icon="android" style="font-variation-settings: 'FILL' 1;">android</span>
   Download APK v1.1.0
 </a>
@@ -747,7 +778,7 @@
       <ul class="space-y-3">
         <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="strategies.html">Strategies</a></li>
         <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="#pricing">Pricing</a></li>
-        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="https://fortress-options.com/fortress-options-v1.1.0.apk">Download App</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/fortress-options-v1.1.0.apk">Download App</a></li>
       </ul>
     </div>
     <div>
