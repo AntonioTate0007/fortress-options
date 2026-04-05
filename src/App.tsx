@@ -37,6 +37,7 @@ interface Play {
   open_interest: number;
   iv: number;
   found_at: string;
+  ai_analysis?: string;
 }
 
 interface Position {
@@ -672,6 +673,29 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
           <span className="text-lg">{isHot ? '🔥' : '📋'}</span>
           <p className={`text-sm font-semibold ${verdictColor}`}>{verdict}</p>
         </div>
+
+        {/* AI Analysis */}
+        {play.ai_analysis && (
+          <div className="bg-zinc-900/80 border border-emerald-500/20 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">🤖</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Fortress AI Analysis</span>
+            </div>
+            <div className="space-y-3 text-[12px] text-zinc-300 leading-relaxed">
+              {play.ai_analysis.split('\n\n').map((block, i) => {
+                const lines = block.split('\n');
+                const heading = lines[0].replace(/\*\*/g, '');
+                const body = lines.slice(1).join(' ');
+                return (
+                  <div key={i}>
+                    <p className="font-bold text-zinc-100 mb-0.5">{heading}</p>
+                    {body && <p className="text-zinc-400">{body}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Score breakdown */}
         <div className="space-y-3 mb-4">
@@ -1906,6 +1930,7 @@ export default function App() {
   const [closePos, setClosePos] = useState<Position | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [pushAnalysis, setPushAnalysis] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1972,6 +1997,17 @@ export default function App() {
           iconColor: '#10b981',
         }],
       }).catch(() => {});
+    });
+
+    // Handle notification tap (app in background or killed)
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const data = action.notification.data as Record<string, string> | undefined;
+      if (data?.tab === 'plays') {
+        setTab('plays');
+      }
+      if (data?.analysis) {
+        setPushAnalysis(data.analysis);
+      }
     });
 
     return () => {
@@ -2198,6 +2234,40 @@ export default function App() {
 
       {/* Modals */}
       <AnimatePresence>
+        {pushAnalysis && (
+          <Modal key="push-analysis" onClose={() => setPushAnalysis(null)}>
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🤖</span>
+                  <h3 className="text-lg font-bold text-white">Fortress AI Analysis</h3>
+                </div>
+                <button onClick={() => setPushAnalysis(null)} className="p-1.5 bg-zinc-800 rounded-lg">
+                  <X className="w-4 h-4 text-zinc-400" />
+                </button>
+              </div>
+              <div className="space-y-3 text-[13px] text-zinc-300 leading-relaxed">
+                {pushAnalysis.split('\n\n').map((block, i) => {
+                  const lines = block.split('\n');
+                  const heading = lines[0].replace(/\*\*/g, '');
+                  const body = lines.slice(1).join(' ');
+                  return (
+                    <div key={i} className="bg-zinc-900 rounded-xl p-3">
+                      <p className="font-bold text-zinc-100 mb-1">{heading}</p>
+                      {body && <p className="text-zinc-400">{body}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => { setPushAnalysis(null); setTab('plays'); }}
+                className="w-full mt-4 py-3 rounded-xl bg-emerald-500 text-black font-bold text-sm"
+              >
+                View All Plays
+              </button>
+            </div>
+          </Modal>
+        )}
         {reasoningPlay && (
           <PlayReasoningModal
             key="reasoning"

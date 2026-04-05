@@ -20,19 +20,22 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 TIERS = {
     "basic": {
         "name": "Basic",
-        "price": 2900,        # cents ($29/mo)
+        "price": 2900,         # cents ($29/mo)
+        "annual_price": 29000, # cents ($290/yr — 2 months free)
         "description": "SPY & QQQ plays only",
         "symbols": ["SPY", "QQQ"],
     },
     "pro": {
         "name": "Pro",
-        "price": 5900,        # cents ($59/mo)
+        "price": 5900,         # cents ($59/mo)
+        "annual_price": 59000, # cents ($590/yr — 2 months free)
         "description": "Full watchlist + earnings plays",
         "symbols": ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL"],
     },
     "elite": {
         "name": "Elite",
-        "price": 9900,        # cents ($99/mo)
+        "price": 9900,         # cents ($99/mo)
+        "annual_price": 99000, # cents ($990/yr — 2 months free)
         "description": "Full access + Telegram alerts",
         "symbols": ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL"],
         "telegram": True,
@@ -109,11 +112,17 @@ def optional_api_key(x_api_key: str = Header(default=None)):
 
 # ── Stripe Checkout ───────────────────────────────────────────────────────────
 
-def create_checkout_session(email: str, tier: str, success_url: str, cancel_url: str) -> str:
+def create_checkout_session(email: str, tier: str, success_url: str, cancel_url: str,
+                            billing: str = "monthly") -> str:
     """Create a Stripe Checkout session and return the URL."""
     tier_info = TIERS.get(tier)
     if not tier_info:
         raise ValueError(f"Unknown tier: {tier}")
+
+    is_annual = billing == "annual"
+    unit_amount = tier_info["annual_price"] if is_annual else tier_info["price"]
+    interval = "year" if is_annual else "month"
+    plan_label = f"{tier_info['name']} {'(Annual)' if is_annual else '(Monthly)'}"
 
     session = stripe.checkout.Session.create(
         customer_email=email,
@@ -121,10 +130,10 @@ def create_checkout_session(email: str, tier: str, success_url: str, cancel_url:
         line_items=[{
             "price_data": {
                 "currency": "usd",
-                "unit_amount": tier_info["price"],
-                "recurring": {"interval": "month"},
+                "unit_amount": unit_amount,
+                "recurring": {"interval": interval},
                 "product_data": {
-                    "name": f"Fortress Options — {tier_info['name']}",
+                    "name": f"Fortress Options — {plan_label}",
                     "description": tier_info["description"],
                 },
             },
@@ -134,7 +143,7 @@ def create_checkout_session(email: str, tier: str, success_url: str, cancel_url:
         subscription_data={"trial_period_days": 3},
         success_url=success_url + "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=cancel_url,
-        metadata={"tier": tier},
+        metadata={"tier": tier, "billing": billing},
     )
     return session.url
 

@@ -663,6 +663,7 @@ class CloseRequest(BaseModel):
 class SubscribeRequest(BaseModel):
     email: str
     tier: str = "basic"
+    billing: str = "monthly"  # "monthly" or "annual"
     success_url: str = "https://fortress-options.com/success"
     cancel_url: str = "https://fortress-options.com/#pricing"
 
@@ -696,7 +697,7 @@ def subscribe(req: SubscribeRequest):
     if not req.tier in TIERS:
         raise HTTPException(400, f"Invalid tier. Choose: {list(TIERS.keys())}")
     try:
-        url = create_checkout_session(req.email, req.tier, req.success_url, req.cancel_url)
+        url = create_checkout_session(req.email, req.tier, req.success_url, req.cancel_url, req.billing)
         return {"checkout_url": url}
     except Exception as e:
         raise HTTPException(500, f"Stripe error: {e}")
