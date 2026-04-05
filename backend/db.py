@@ -107,3 +107,10 @@ def init_db():
             conn.commit()
         except Exception:
             pass  # Column already exists
+
+        # Migration: add ai_analysis column to plays
+        try:
+            conn.execute("ALTER TABLE plays ADD COLUMN ai_analysis TEXT")
+            conn.commit()
+        except Exception:
+            pass

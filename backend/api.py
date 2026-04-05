@@ -49,6 +49,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 from db import get_db, init_db
 from ranker import get_exit_recommendation, score_play
+import anthropic as _anthropic
 from auth import (require_api_key, optional_api_key, create_subscriber,
                   cancel_subscriber, send_api_key_email, create_checkout_session,
                   send_blast_email, STRIPE_WEBHOOK_SECRET, TIERS)
@@ -96,6 +97,85 @@ def send_fcm_to_all(title: str, body: str, data: dict = None):
             fcm_messaging.send(msg)
         except Exception as e:
             print(f"[FCM] Send failed for token {token[:20]}...: {e}")
+
+
+def generate_play_analysis(play: dict) -> str:
+    """Use Claude to generate rich Fortress-style analysis for a play."""
+    try:
+        client = _anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+        prompt = f"""You are the Fortress Options AI analyst. Generate a concise, punchy analysis for this options play.
+
+Play data:
+- Symbol: {play['symbol']}
+- Strategy: Bull Put Spread (Fortress Play)
+- Short Strike: ${play['short_strike']:.0f} / Long Strike: ${play['long_strike']:.0f}
+- Expiration: {play['expiration']} ({play['dte']} days)
+- Current Price: ${play['current_price']:.2f}
+- Net Credit: ${play['net_credit']:.2f} per share (${play['net_credit']*100:.0f} per contract)
+- Max Risk: ${play['max_risk']:.0f} per contract
+- Safety Buffer: {play['buffer_pct']:.1f}% below current price
+- IV: {play.get('iv', 0)*100:.0f}%
+- Score: {play['score']}/10
+
+Write 3 short sections (2-3 sentences each):
+1. **The Opportunity** — Why this play makes sense right now (mention IV, buffer, risk/reward)
+2. **The Fortress Warning** ⚠️ — One key risk to watch for this specific stock/sector
+3. **My Recommendation** — Clear action (Bull Put Spread) with the specific strikes and why
+
+Keep it under 200 words. Be direct, confident, like a sharp options trader briefing a client. No fluff."""
+
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return msg.content[0].text.strip()
+    except Exception as e:
+        print(f"[AI] Analysis failed for {play.get('symbol')}: {e}")
+        # Fallback: mechanical summary
+        return (
+            f"**The Opportunity**\n${play['short_strike']:.0f}/${play['long_strike']:.0f} put spread "
+            f"collects ${play['net_credit']:.2f} credit with a {play['buffer_pct']:.1f}% safety buffer. "
+            f"Score {play['score']}/10.\n\n"
+            f"**The Fortress Warning** ⚠️\nMonitor price action near ${play['short_strike']:.0f}.\n\n"
+            f"**My Recommendation**\nSell the ${play['short_strike']:.0f}/${play['long_strike']:.0f} "
+            f"put spread expiring {play['expiration']} for ${play['net_credit']:.2f} credit."
+        )
+
+
+def send_fcm_to_pro_elite(title: str, body: str, analysis: str = "", data: dict = None):
+    """Send rich push notifications only to pro and elite tier subscribers."""
+    if fcm_messaging is None:
+        return
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT ft.token FROM fcm_tokens ft
+               JOIN subscribers s ON ft.api_key = s.api_key
+               WHERE s.tier IN ('pro', 'elite') AND s.status = 'active'"""
+        ).fetchall()
+    tokens = [r["token"] for r in rows]
+    if not tokens:
+        # Fall back to sending to all registered tokens if no tier-filtered ones
+        send_fcm_to_all(title, body, data)
+        return
+    for token in tokens:
+        try:
+            msg = fcm_messaging.Message(
+                notification=fcm_messaging.Notification(title=title, body=body),
+                data={**(data or {}), "analysis": analysis[:900] if analysis else ""},
+                android=fcm_messaging.AndroidConfig(
+                    priority="high",
+                    notification=fcm_messaging.AndroidNotification(
+                        sound="fortress_alert",
+                        channel_id="fortress_plays",
+                        color="#10b981",
+                    ),
+                ),
+                token=token,
+            )
+            fcm_messaging.send(msg)
+        except Exception as e:
+            print(f"[FCM] Pro/Elite send failed for {token[:20]}...: {e}")
 
 
 def is_market_hours() -> bool:
@@ -232,18 +312,21 @@ def scan_and_save(force: bool = False):
                             }
                             score, breakdown = score_play(play)
 
+                            # Generate AI analysis for the play
+                            ai_analysis = generate_play_analysis(play)
+
                             with get_db() as conn:
                                 conn.execute(
                                     """INSERT INTO plays
                                     (symbol, play_type, short_strike, long_strike, expiration, dte,
                                      current_price, net_credit, max_risk, spread_width, buffer_pct,
-                                     score, score_breakdown, volume, open_interest, iv, is_active)
-                                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
+                                     score, score_breakdown, volume, open_interest, iv, is_active, ai_analysis)
+                                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
                                     (
                                         symbol, "fortress", short_strike, long_strike, target_date, dte,
                                         round(current_price, 2), round(net_credit, 2), round(max_risk, 2),
                                         SPREAD_WIDTH, round(buffer_pct, 2), score, json.dumps(breakdown),
-                                        volume, oi, round(iv, 4),
+                                        volume, oi, round(iv, 4), ai_analysis,
                                     ),
                                 )
                                 conn.commit()
@@ -270,7 +353,7 @@ def scan_and_save(force: bool = False):
         # Send FCM push for newly found plays
         with get_db() as conn:
             new_plays = conn.execute(
-                "SELECT symbol, score, net_credit, short_strike, long_strike, buffer_pct "
+                "SELECT symbol, score, net_credit, short_strike, long_strike, buffer_pct, ai_analysis "
                 "FROM plays WHERE is_active=1 ORDER BY score DESC"
             ).fetchall()
         if new_plays:
@@ -280,7 +363,10 @@ def scan_and_save(force: bool = False):
             title = f"{emoji} {count} new play{'s' if count > 1 else ''} — {top['symbol']} scores {top['score']}/10"
             body = (f"${top['short_strike']:.0f}/{top['long_strike']:.0f} put spread · "
                     f"${top['net_credit']:.2f} credit · {top['buffer_pct']:.1f}% buffer")
-            send_fcm_to_all(title, body, {"play_id": str(top["score"]), "tab": "plays"})
+            analysis = top["ai_analysis"] or ""
+            # Rich push for pro/elite; basic push for all (basic tier)
+            send_fcm_to_pro_elite(title, body, analysis, {"tab": "plays"})
+            send_fcm_to_all(title, body, {"tab": "plays"})
     finally:
         _is_scanning = False
         _scan_lock.release()
