@@ -1,0 +1,11 @@
+{
+  "updated": "2026-04-05",
+  "events": [
+    { "ticker": "GOOGL", "company": "Alphabet Inc.",      "date": "Apr 29, 2025", "time": "After Close" },
+    { "ticker": "META",  "company": "Meta Platforms",     "date": "Apr 30, 2025", "time": "After Close" },
+    { "ticker": "MSFT",  "company": "Microsoft Corp.",    "date": "Apr 30, 2025", "time": "After Close" },
+    { "ticker": "AAPL",  "company": "Apple Inc.",         "date": "May 1, 2025",  "time": "After Close" },
+    { "ticker": "AMZN",  "company": "Amazon.com Inc.",    "date": "May 1, 2025",  "time": "After Close" },
+    { "ticker": "NVDA",  "company": "NVIDIA Corp.",       "date": "May 28, 2025", "time": "After Close" }
+  ]
+}

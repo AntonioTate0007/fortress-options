@@ -1220,7 +1220,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.5.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.6.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1679,7 +1679,7 @@ interface EarningsEvent {
   tier: 'pro' | 'all';
 }
 
-const EARNINGS: EarningsEvent[] = [
+const EARNINGS_FALLBACK: EarningsEvent[] = [
   { ticker: 'GOOGL', company: 'Alphabet Inc.',      date: 'Apr 29, 2025', time: 'After Close', tier: 'pro' },
   { ticker: 'META',  company: 'Meta Platforms',     date: 'Apr 30, 2025', time: 'After Close', tier: 'pro' },
   { ticker: 'MSFT',  company: 'Microsoft Corp.',    date: 'Apr 30, 2025', time: 'After Close', tier: 'pro' },
@@ -1689,13 +1689,32 @@ const EARNINGS: EarningsEvent[] = [
 ];
 
 function EarningsScreen() {
+  const [events, setEvents] = useState<EarningsEvent[]>(EARNINGS_FALLBACK);
+  const [loadingEarnings, setLoadingEarnings] = useState(true);
+
+  useEffect(() => {
+    fetch('https://fortress-options.com/earnings.json')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data.events) && data.events.length > 0) {
+          setEvents(data.events.map((e: any) => ({ ...e, tier: 'pro' as const })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEarnings(false));
+  }, []);
+
   return (
     <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3">
       <div className="mb-4">
         <h2 className="text-white text-xl font-bold">Upcoming Earnings</h2>
         <p className="text-zinc-500 text-sm mt-1">AI-scored options plays delivered at market open.</p>
       </div>
-      {EARNINGS.map((e) => (
+      {loadingEarnings ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+        </div>
+      ) : events.map((e) => (
         <div key={e.ticker} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
             <span className="text-emerald-400 text-xs font-extrabold">{e.ticker}</span>
@@ -2001,6 +2020,22 @@ export default function App() {
     localStorage.setItem('fortress_theme', next ? 'dark' : 'light');
     return next;
   });
+
+  // ── Update check ─────────────────────────────────────────────────────────────
+  const CURRENT_VERSION = '1.6.0';
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+
+  useEffect(() => {
+    fetch('https://fortress-options.com/version.json')
+      .then(r => r.json())
+      .then(data => {
+        if (data.latest && data.latest !== CURRENT_VERSION) {
+          setUpdateInfo({ latest: data.latest, download: data.download, changelog: data.changelog || '' });
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [plays, setPlays] = useState<Play[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [history, setHistory] = useState<Position[]>([]);
@@ -2289,6 +2324,29 @@ export default function App() {
           <Settings className="w-4.5 h-4.5 text-zinc-400" />
         </button>
       </header>
+
+      {/* Update banner */}
+      {updateInfo && !updateDismissed && (
+        <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/30">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-emerald-400 text-xs font-bold shrink-0">v{updateInfo.latest} available</span>
+            {updateInfo.changelog ? <span className="text-zinc-500 text-xs truncate">· {updateInfo.changelog}</span> : null}
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <a
+              href={updateInfo.download}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-emerald-400 px-3 py-1 bg-emerald-500/20 rounded-lg"
+            >
+              Update
+            </a>
+            <button onClick={() => setUpdateDismissed(true)} className="text-zinc-600 p-0.5">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Screen */}
       <AnimatePresence mode="wait">
