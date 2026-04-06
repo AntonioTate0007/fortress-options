@@ -885,6 +885,46 @@ def trigger_scan():
     return {"message": "Scan started"}
 
 
+@app.get("/api/admin/debug-scan")
+def debug_scan(admin_key: str = ""):
+    """Admin: run a single-symbol scan synchronously and return diagnostic output."""
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    import io, contextlib
+    results = []
+    symbol = "SPY"
+    try:
+        ticker = yf.Ticker(symbol)
+        price = float(ticker.fast_info["last_price"])
+        exps = ticker.options
+        results.append({"symbol": symbol, "price": price, "expirations": list(exps[:8])})
+        today = datetime.now()
+        valid_exps = [(e, (datetime.strptime(e, "%Y-%m-%d") - today).days) for e in exps
+                      if MIN_DTE <= (datetime.strptime(e, "%Y-%m-%d") - today).days <= MAX_DTE]
+        results.append({"valid_exps_in_window": valid_exps[:5]})
+        if valid_exps:
+            exp, dte = valid_exps[0]
+            chain = ticker.option_chain(exp)
+            puts = chain.puts
+            puts_with_bid = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
+            lower = price * (1 - OTM_BUFFER_MAX)
+            upper = price * (1 - OTM_BUFFER_MIN)
+            cands = puts_with_bid[(puts_with_bid["strike"] >= lower) & (puts_with_bid["strike"] <= upper)]
+            credits = []
+            for _, row in cands.iterrows():
+                short_s = float(row["strike"])
+                long_s = short_s - SPREAD_WIDTH
+                long_row = puts_with_bid[puts_with_bid["strike"] == long_s]
+                if not long_row.empty:
+                    credit = round(((float(row["bid"]) + float(row["ask"])) / 2) -
+                                   ((float(long_row.iloc[0]["bid"]) + float(long_row.iloc[0]["ask"])) / 2), 2)
+                    credits.append({"short": short_s, "long": long_s, "credit": credit, "qualifies": PREMIUM_MIN <= credit <= PREMIUM_MAX})
+            results.append({"exp": exp, "dte": dte, "candidates": len(cands), "credits": credits[:10]})
+    except Exception as e:
+        results.append({"error": str(e)})
+    return {"debug": results, "settings": {"MIN_DTE": MIN_DTE, "MAX_DTE": MAX_DTE, "PREMIUM_MIN": PREMIUM_MIN, "PREMIUM_MAX": PREMIUM_MAX, "OTM_BUFFER": f"{OTM_BUFFER_MIN}-{OTM_BUFFER_MAX}"}}
+
+
 @app.post("/api/fcm/register")
 def register_fcm_token(token: str, sub: dict = Depends(require_api_key)):
     """Register or update an FCM device token for the authenticated subscriber."""
