@@ -36,6 +36,13 @@ except ImportError:
     fcm_messaging = None
     print("[FCM] firebase-admin not installed — push disabled.")
 import yfinance as yf
+try:
+    from curl_cffi import requests as _curl_requests
+    _yf_session = _curl_requests.Session(impersonate="chrome110")
+    print("[yfinance] Using curl_cffi chrome110 session to avoid rate limits.")
+except Exception:
+    _yf_session = None
+    print("[yfinance] curl_cffi not available — using default session.")
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -237,7 +244,7 @@ def scan_and_save(force: bool = False):
 
         for symbol in WATCHLIST:
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(symbol, session=_yf_session)
                 current_price = float(ticker.fast_info["last_price"])
                 expirations = ticker.options
                 today = datetime.now()
@@ -382,7 +389,7 @@ def update_positions():
 
     for pos in positions:
         try:
-            ticker = yf.Ticker(pos["symbol"])
+            ticker = yf.Ticker(pos["symbol"], session=_yf_session)
             current_price = float(ticker.fast_info["last_price"])
 
             try:
@@ -472,7 +479,7 @@ def send_weekly_earnings_briefing():
     best = None          # (symbol, date, market_cap, price, beta, timing)
     for symbol in WATCHLIST:
         try:
-            tk = yf.Ticker(symbol)
+            tk = yf.Ticker(symbol, session=_yf_session)
             info = tk.info or {}
             price = info.get("regularMarketPrice") or info.get("currentPrice", 0)
             mktcap = info.get("marketCap", 0)
@@ -524,7 +531,7 @@ def send_weekly_earnings_briefing():
 
         # ── Market sentiment ──────────────────────────────────────────────────
         try:
-            spy = yf.Ticker("SPY")
+            spy = yf.Ticker("SPY", session=_yf_session)
             spy_hist = spy.history(period="5d")
             if len(spy_hist) >= 2:
                 spy_chg = (spy_hist["Close"].iloc[-1] / spy_hist["Close"].iloc[0] - 1) * 100
@@ -598,13 +605,42 @@ def _keep_alive_ping():
         pass
 
 
+def send_daily_morning_briefing():
+    """Send 8:30 AM ET market-open briefing to all subscribers every market day."""
+    from datetime import date as _date
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    # Skip weekends
+    if now_et.weekday() >= 5:
+        return
+    # Skip US market holidays (major ones)
+    _holidays = {
+        _date(2026, 1, 1), _date(2026, 1, 19), _date(2026, 2, 16),
+        _date(2026, 4, 3), _date(2026, 5, 25), _date(2026, 7, 3),
+        _date(2026, 9, 7), _date(2026, 11, 26), _date(2026, 12, 25),
+    }
+    if now_et.date() in _holidays:
+        return
+    send_fcm_to_all(
+        "Fortress Bot Online 🟢",
+        "Scheduled alerts: 8:30 AM daily briefing • Intraday scans every 30 min • Earnings play alerts active",
+        {"tab": "plays"},
+    )
+    print(f"[{now_et:%H:%M:%S}] Daily morning briefing sent.")
+
+
 def background_loop():
     sch.every(30).minutes.do(scan_and_save)
     sch.every(5).minutes.do(update_positions)
     sch.every(14).minutes.do(_keep_alive_ping)
 
+    # Daily 8:30 AM ET market-open briefing (Mon–Fri)
+    sch.every().monday.at("08:30").do(send_daily_morning_briefing)
+    sch.every().tuesday.at("08:30").do(send_daily_morning_briefing)
+    sch.every().wednesday.at("08:30").do(send_daily_morning_briefing)
+    sch.every().thursday.at("08:30").do(send_daily_morning_briefing)
+    sch.every().friday.at("08:30").do(send_daily_morning_briefing)
+
     # Weekly earnings briefing — Fridays at 8:30 AM ET
-    et = ZoneInfo("America/New_York")
     sch.every().friday.at("08:30").do(send_weekly_earnings_briefing)
 
     # Run immediately on startup
@@ -894,7 +930,7 @@ def debug_scan(admin_key: str = ""):
     results = []
     symbol = "SPY"
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(symbol, session=_yf_session)
         price = float(ticker.fast_info["last_price"])
         exps = ticker.options
         results.append({"symbol": symbol, "price": price, "expirations": list(exps[:8])})
