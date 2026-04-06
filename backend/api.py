@@ -323,6 +323,7 @@ def scan_and_save(force: bool = False):
                                 "iv": iv,
                             }
                             score, breakdown = score_play(play)
+                            play["score"] = score  # needed by generate_play_analysis
 
                             # Generate AI analysis for the play
                             ai_analysis = generate_play_analysis(play)
