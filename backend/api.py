@@ -587,9 +587,21 @@ def send_weekly_earnings_briefing():
 # ─── Background Thread ────────────────────────────────────────────────────────
 
 
+def _keep_alive_ping():
+    """Self-ping every 14 minutes to prevent Render free-tier cold starts."""
+    import urllib.request
+    port = int(os.getenv("PORT", 8001))
+    url = f"http://localhost:{port}/api/status"
+    try:
+        urllib.request.urlopen(url, timeout=5)
+    except Exception:
+        pass
+
+
 def background_loop():
     sch.every(30).minutes.do(scan_and_save)
     sch.every(5).minutes.do(update_positions)
+    sch.every(14).minutes.do(_keep_alive_ping)
 
     # Weekly earnings briefing — Fridays at 8:30 AM ET
     et = ZoneInfo("America/New_York")
@@ -1013,6 +1025,139 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)
+
+
+# ─── Admin Panel ─────────────────────────────────────────────────────────────
+
+EARNINGS_JSON_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "website", "earnings.json")
+
+class EarningsUpdateRequest(BaseModel):
+    admin_key: str
+    events: list  # list of {ticker, company, date, time}
+
+@app.get("/api/admin/earnings")
+def get_earnings(admin_key: str = ""):
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    if os.path.exists(EARNINGS_JSON_PATH):
+        with open(EARNINGS_JSON_PATH) as f:
+            return json.load(f)
+    return {"events": []}
+
+@app.post("/api/admin/earnings")
+def update_earnings(req: EarningsUpdateRequest):
+    if req.admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    from datetime import date
+    data = {"updated": date.today().isoformat(), "events": req.events}
+    with open(EARNINGS_JSON_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+    return {"ok": True, "count": len(req.events)}
+
+_ADMIN_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Fortress Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0A0A0B;color:#e4e4e7;font-family:system-ui,sans-serif;padding:24px;max-width:760px;margin:0 auto}
+h1{font-size:1.4rem;font-weight:700;color:#10b981;margin-bottom:24px}
+h2{font-size:1rem;font-weight:600;color:#a1a1aa;margin-bottom:12px;margin-top:28px}
+input,select{background:#18181b;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;padding:8px 12px;font-size:14px;width:100%}
+input:focus,select:focus{outline:none;border-color:#10b981}
+button{background:#10b981;color:#003918;font-weight:700;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
+button:hover{background:#34d399}
+button.del{background:#3f3f46;color:#e4e4e7;padding:6px 12px;font-size:12px}
+button.del:hover{background:#ef4444;color:#fff}
+.row{display:grid;grid-template-columns:80px 1fr 110px 120px 60px;gap:8px;align-items:center;margin-bottom:8px}
+.row.header{color:#71717a;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+#status{margin-top:16px;padding:10px 14px;background:#18181b;border-radius:8px;font-size:13px;color:#10b981;display:none}
+.key-row{display:flex;gap:8px;margin-bottom:24px}
+.key-row input{max-width:300px}
+</style>
+</head>
+<body>
+<h1>🏰 Fortress Options Admin</h1>
+
+<div class="key-row">
+  <input id="adminKey" type="password" placeholder="Admin key" />
+  <button onclick="load()">Load</button>
+</div>
+
+<h2>Upcoming Earnings</h2>
+<div class="row header">
+  <span>Ticker</span><span>Company</span><span>Date</span><span>Time</span><span></span>
+</div>
+<div id="events"></div>
+<button onclick="addRow()" style="background:#3f3f46;color:#e4e4e7;margin-top:8px">+ Add Row</button>
+
+<br/><br/>
+<button onclick="save()">Save & Publish</button>
+<div id="status"></div>
+
+<script>
+const API = window.location.origin;
+
+function load() {
+  const key = document.getElementById('adminKey').value;
+  fetch(`${API}/api/admin/earnings?admin_key=${encodeURIComponent(key)}`)
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById('events');
+      container.innerHTML = '';
+      (data.events || []).forEach(e => addRow(e));
+    })
+    .catch(() => alert('Failed — check admin key'));
+}
+
+function addRow(e = {}) {
+  const container = document.getElementById('events');
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `
+    <input placeholder="AAPL" value="${e.ticker||''}" />
+    <input placeholder="Apple Inc." value="${e.company||''}" />
+    <input placeholder="May 1, 2025" value="${e.date||''}" />
+    <select>
+      <option value="After Close" ${e.time==='After Close'?'selected':''}>After Close</option>
+      <option value="Before Open" ${e.time==='Before Open'?'selected':''}>Before Open</option>
+    </select>
+    <button class="del" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function save() {
+  const key = document.getElementById('adminKey').value;
+  const rows = document.querySelectorAll('#events .row');
+  const events = Array.from(rows).map(row => {
+    const inputs = row.querySelectorAll('input,select');
+    return { ticker: inputs[0].value.trim().toUpperCase(), company: inputs[1].value.trim(), date: inputs[2].value.trim(), time: inputs[3].value };
+  }).filter(e => e.ticker);
+
+  fetch(`${API}/api/admin/earnings`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ admin_key: key, events })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const s = document.getElementById('status');
+    s.style.display = 'block';
+    s.textContent = data.ok ? `✓ Saved ${data.count} events — live immediately` : 'Error saving';
+    setTimeout(() => s.style.display = 'none', 4000);
+  });
+}
+</script>
+</body>
+</html>"""
+
+@app.get("/admin", include_in_schema=False)
+def admin_panel():
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(_ADMIN_HTML)
 
 
 # ─── Serve React App ─────────────────────────────────────────────────────────

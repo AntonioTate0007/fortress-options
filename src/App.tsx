@@ -1220,7 +1220,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.6.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.7.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1413,6 +1413,48 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  const [slowLoad, setSlowLoad] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlowLoad(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3">
+      {/* Skeleton cards */}
+      {[0,1,2].map(i => (
+        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 animate-pulse">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-zinc-800" />
+              <div>
+                <div className="w-14 h-4 bg-zinc-800 rounded mb-1.5" />
+                <div className="w-20 h-3 bg-zinc-800 rounded" />
+              </div>
+            </div>
+            <div className="w-12 h-6 bg-zinc-800 rounded-full" />
+          </div>
+          <div className="flex gap-2 mt-3">
+            <div className="flex-1 h-8 bg-zinc-800 rounded-xl" />
+            <div className="flex-1 h-8 bg-zinc-800 rounded-xl" />
+            <div className="flex-1 h-8 bg-zinc-800 rounded-xl" />
+          </div>
+        </div>
+      ))}
+      {slowLoad && (
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+          <p className="text-zinc-500 text-xs">Server is waking up — this takes ~30 sec on first load</p>
+          <p className="text-zinc-600 text-xs">Subsequent loads will be instant</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Screens ─────────────────────────────────────────────────────────────────
 
 function PlaysScreen({
@@ -1459,9 +1501,7 @@ function PlaysScreen({
       </div>
 
       {loading && plays.length === 0 ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-        </div>
+        <LoadingSkeleton />
       ) : plays.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-zinc-600 gap-3 px-6 text-center">
           {isMarketJustOpened() ? (
@@ -1867,15 +1907,29 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
   const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
   if (step === 'welcome') return (
-    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center px-8 gap-8">
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col items-center justify-center px-8 gap-6">
       <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-[0_0_48px_rgba(16,185,129,0.5)]">
         <Shield className="w-11 h-11 text-black" />
       </div>
       <div className="text-center">
         <h1 className="text-3xl font-bold text-white tracking-tight">Fortress Options</h1>
-        <p className="text-zinc-400 mt-3 text-base leading-relaxed">
+        <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
           Institutional-grade options plays, scored and filtered for high-probability setups.
         </p>
+      </div>
+      {/* Feature highlights */}
+      <div className="w-full space-y-2.5">
+        {[
+          { icon: <Target className="w-4 h-4 text-emerald-400" />, text: 'AI-scored bull put spreads, 0–10 rating' },
+          { icon: <CalendarDays className="w-4 h-4 text-emerald-400" />, text: 'Earnings calendar with options plays' },
+          { icon: <Bell className="w-4 h-4 text-emerald-400" />, text: 'Instant push alerts for new plays' },
+          { icon: <BarChart2 className="w-4 h-4 text-emerald-400" />, text: 'Position tracker with P&L monitoring' },
+        ].map((f, i) => (
+          <div key={i} className="flex items-center gap-3 bg-zinc-900/60 rounded-xl px-4 py-2.5 border border-zinc-800/60">
+            {f.icon}
+            <span className="text-zinc-300 text-sm">{f.text}</span>
+          </div>
+        ))}
       </div>
       <button
         onClick={() => setStep('api-key')}
@@ -1883,7 +1937,7 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
       >
         Get Started
       </button>
-      <p className="text-zinc-600 text-sm text-center">
+      <p className="text-zinc-600 text-xs text-center">
         Need a key? Subscribe at <span className="text-emerald-500">fortress-options.com</span>
       </p>
     </div>
@@ -2022,7 +2076,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.6.0';
+  const CURRENT_VERSION = '1.7.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
