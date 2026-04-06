@@ -191,6 +191,29 @@ function StatPill({ label, value, dim }: { label: string; value: string; dim?: b
 }
 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  const closedByBackRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    // Push a history entry so Android hardware back button triggers popstate
+    history.pushState({ fortress_modal: Date.now() }, '');
+
+    const handlePop = () => {
+      closedByBackRef.current = true;
+      onCloseRef.current();
+    };
+    window.addEventListener('popstate', handlePop);
+
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      // If modal was closed by X/backdrop (not back button), pop our history entry
+      if (!closedByBackRef.current) {
+        history.back();
+      }
+    };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -228,11 +251,18 @@ function formatFoundAt(ts: string): string {
 function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p: Play) => void; onViewReasoning: (p: Play) => void }) {
   const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
 
+  const isHotCard = play.score >= 8;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#161618] border border-zinc-800/80 rounded-2xl p-4 cursor-pointer active:scale-[0.99] transition-transform"
+      className={`bg-[#161618] rounded-2xl p-4 cursor-pointer active:scale-[0.99] transition-all ${
+        isHotCard
+          ? 'border border-emerald-500/50 shadow-[0_0_24px_rgba(16,185,129,0.22)]'
+          : 'border border-zinc-800/80'
+      }`}
+      style={isHotCard ? { boxShadow: '0 0 28px rgba(16,185,129,0.18), 0 0 0 1px rgba(16,185,129,0.3)' } : undefined}
       onClick={() => onViewReasoning(play)}
     >
       <div className="flex items-start justify-between mb-3">
@@ -1028,6 +1058,126 @@ function TelegramSection({ apiKey }: { apiKey: string }) {
 }
 
 // ─── Settings Modal ───────────────────────────────────────────────────────────
+
+// ─── How to Use Modal ─────────────────────────────────────────────────────────
+
+function HowToUseModal({ onClose }: { onClose: () => void }) {
+  const sections = [
+    {
+      icon: '🏰',
+      title: 'What is Fortress Options?',
+      body: 'Fortress Options is an AI-powered scanner that finds high-probability bull put spread opportunities on top stocks. The bot scans the market every 30 minutes during trading hours and alerts you to the best setups.',
+    },
+    {
+      icon: '📊',
+      title: 'What is a Bull Put Spread?',
+      body: 'A bull put spread is a credit options strategy. You sell a put at a higher strike (collecting premium) and buy a put at a lower strike (protection). You profit if the stock stays above your short strike at expiration. Maximum profit = the credit collected. Maximum loss = spread width minus credit.',
+    },
+    {
+      icon: '🃏',
+      title: 'Reading a Play Card',
+      items: [
+        { label: 'Score', desc: 'Fortress AI rates each play 0–10. 8+ is a hot setup (glowing card). 6–7 is solid. Under 5 is weak.' },
+        { label: 'Sell (Short Strike)', desc: 'The put you sell to collect credit. Stock must stay above this price at expiration.' },
+        { label: 'Buy (Long Strike)', desc: 'The put you buy as protection. Caps your maximum loss.' },
+        { label: 'Credit', desc: 'The premium you receive per share when you open the trade. This is your max profit.' },
+        { label: 'Buffer %', desc: 'How far the stock can fall before your short strike is breached. Higher is safer.' },
+        { label: 'Return %', desc: 'Credit divided by spread width. Your return on capital if the trade expires worthless.' },
+        { label: 'Max Risk', desc: 'Worst-case loss per contract = (spread width − credit) × 100.' },
+      ],
+    },
+    {
+      icon: '🔥',
+      title: 'The Score System (0–10)',
+      items: [
+        { label: '💰 Premium (0–3)', desc: 'Higher credit relative to spread width = higher score.' },
+        { label: '🛡️ Buffer (0–2)', desc: 'More distance between current price and short strike = safer.' },
+        { label: '🌊 Liquidity (0–2)', desc: 'High volume and open interest = tighter bid/ask and easier fills.' },
+        { label: '📅 DTE (0–2)', desc: '9–12 days to expiry is the sweet spot for theta decay.' },
+        { label: '📊 IV (0–1)', desc: 'Elevated implied volatility means richer premium to sell.' },
+      ],
+    },
+    {
+      icon: '🏦',
+      title: 'How to Place the Trade',
+      items: [
+        { label: 'Step 1', desc: 'Open your brokerage app (Robinhood, Tastytrade, TD Ameritrade, etc.).' },
+        { label: 'Step 2', desc: 'Search for the stock symbol (e.g., SPY).' },
+        { label: 'Step 3', desc: 'Navigate to Options → Put → select the expiration date shown.' },
+        { label: 'Step 4', desc: 'Sell the short strike put and buy the long strike put as a spread.' },
+        { label: 'Step 5', desc: 'Enter a limit order at or near the credit shown. Use 1+ contracts.' },
+        { label: 'Step 6', desc: 'Tap "Track Trade" in Fortress to monitor your position.' },
+      ],
+    },
+    {
+      icon: '📈',
+      title: 'Managing Positions',
+      body: 'After entering a trade, add it to the Tracker. Fortress monitors it live — when your profit hits 50% of max (i.e., you\'ve captured half the credit), consider closing early to lock in gains. If the stock drops near your short strike, the AI will recommend "Caution" or "Exit". Tap "AI Advice" on any position for a real-time recommendation.',
+    },
+    {
+      icon: '🔔',
+      title: 'Alerts & Notifications',
+      body: 'Fortress sends push notifications for: new high-score plays found, profit targets reached (50% profit), loss warnings (position in danger), and the daily 8:30 AM market open briefing. Make sure notifications are enabled in your Android settings.',
+    },
+    {
+      icon: '⚡',
+      title: 'Tips for Best Results',
+      items: [
+        { label: 'Score 8+', desc: 'Only trade plays with score 8 or higher for the best risk-adjusted setups.' },
+        { label: 'Buffer 5%+', desc: 'A buffer of 5% or more gives the stock room to move without threatening your position.' },
+        { label: 'Close at 50%', desc: 'Take profit when you\'ve made 50% of the max credit. Don\'t get greedy.' },
+        { label: 'Risk 1–2%', desc: 'Never risk more than 1–2% of your account on a single spread.' },
+        { label: 'Earnings', desc: 'Earnings plays are higher risk/reward. Look for the orange "Earnings" badge.' },
+      ],
+    },
+  ];
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-[#1C1C1E] border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📖</span>
+            <h3 className="text-lg font-bold text-white">How to Use Fortress</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
+            <X className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {sections.map((sec, i) => (
+            <div key={i} className="bg-zinc-900/70 border border-zinc-800/60 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">{sec.icon}</span>
+                <h4 className="text-sm font-bold text-white">{sec.title}</h4>
+              </div>
+              {'body' in sec && sec.body && (
+                <p className="text-[13px] text-zinc-400 leading-relaxed">{sec.body}</p>
+              )}
+              {'items' in sec && sec.items && (
+                <div className="space-y-2">
+                  {sec.items.map((item, j) => (
+                    <div key={j} className="flex gap-2">
+                      <span className="text-[12px] font-bold text-emerald-400 shrink-0 min-w-[80px]">{item.label}</span>
+                      <span className="text-[12px] text-zinc-400 leading-snug">{item.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4 text-center">
+            <p className="text-sm font-bold text-emerald-400 mb-1">🏰 You're all set!</p>
+            <p className="text-[12px] text-zinc-400">Fortress does the scanning. You make the calls. Trade smart.</p>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
   const { dark, toggle: toggleTheme } = useTheme();
@@ -1859,7 +2009,7 @@ function BottomNav({
 
 // ─── Onboarding ───────────────────────────────────────────────────────────────
 
-type OnboardStep = 'welcome' | 'api-key' | 'security' | 'pin-setup' | 'pin-confirm';
+type OnboardStep = 'welcome' | 'disclaimer' | 'api-key' | 'security' | 'pin-setup' | 'pin-confirm';
 
 function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: () => void; initialStep?: OnboardStep }) {
   const [step, setStep] = useState<OnboardStep>(initialStep);
@@ -1971,7 +2121,7 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
         ))}
       </div>
       <button
-        onClick={() => setStep('api-key')}
+        onClick={() => setStep('disclaimer')}
         className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-2xl transition-colors shadow-[0_0_24px_rgba(16,185,129,0.3)]"
       >
         Get Started
@@ -1979,6 +2129,71 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
       <p className="text-zinc-600 text-xs text-center">
         Need a key? Subscribe at <span className="text-emerald-500">fortress-options.com</span>
       </p>
+    </div>
+  );
+
+  if (step === 'disclaimer') return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A0B] flex flex-col px-6 pt-12 pb-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center">
+          <AlertTriangle className="w-6 h-6 text-yellow-400" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-white">Risk Disclaimer</h2>
+          <p className="text-zinc-500 text-xs mt-0.5">Please read before continuing</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-1">
+        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-4">
+          <p className="text-yellow-400 text-xs font-bold uppercase tracking-wider mb-2">⚠️ Not Financial Advice</p>
+          <p className="text-zinc-300 text-sm leading-relaxed">
+            Fortress Options is an <span className="text-white font-semibold">informational tool only</span>. Nothing in this app constitutes financial advice, investment advice, or a recommendation to buy or sell any security.
+          </p>
+        </div>
+
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 space-y-3">
+          <div>
+            <p className="text-white text-sm font-semibold mb-1">📉 Options Trading Risk</p>
+            <p className="text-zinc-400 text-[13px] leading-relaxed">Options trading involves substantial risk and is not appropriate for all investors. You can lose your entire investment. Never trade with money you cannot afford to lose.</p>
+          </div>
+          <div className="border-t border-zinc-800 pt-3">
+            <p className="text-white text-sm font-semibold mb-1">🤖 AI-Generated Signals</p>
+            <p className="text-zinc-400 text-[13px] leading-relaxed">Play scores and AI analysis are generated algorithmically based on historical and real-time market data. Past performance of signals does not guarantee future results.</p>
+          </div>
+          <div className="border-t border-zinc-800 pt-3">
+            <p className="text-white text-sm font-semibold mb-1">📋 Your Responsibility</p>
+            <p className="text-zinc-400 text-[13px] leading-relaxed">You are solely responsible for your own trading decisions. Always conduct your own research, understand the strategy fully, and consult a licensed financial advisor if needed.</p>
+          </div>
+          <div className="border-t border-zinc-800 pt-3">
+            <p className="text-white text-sm font-semibold mb-1">⚡ Market Risks</p>
+            <p className="text-zinc-400 text-[13px] leading-relaxed">Markets can move against your position rapidly due to earnings, news, or macro events. Bull put spreads, while defined-risk, can result in maximum loss if the underlying drops sharply.</p>
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/60 border border-zinc-800/50 rounded-2xl p-3">
+          <p className="text-zinc-500 text-[11px] text-center leading-relaxed">
+            By continuing, you confirm you are 18+ years old, understand options trading risk, and agree to the{' '}
+            <span className="text-emerald-400">Terms of Service</span> and{' '}
+            <span className="text-emerald-400">Privacy Policy</span> at fortress-options.com.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3 shrink-0">
+        <button
+          onClick={() => setStep('api-key')}
+          className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-base rounded-2xl transition-colors shadow-[0_0_24px_rgba(16,185,129,0.25)]"
+        >
+          I Understand & Agree
+        </button>
+        <button
+          onClick={() => setStep('welcome')}
+          className="w-full py-3 text-zinc-500 text-sm font-medium"
+        >
+          Go Back
+        </button>
+      </div>
     </div>
   );
 
@@ -2115,7 +2330,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.8.3';
+  const CURRENT_VERSION = '1.9.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -2141,6 +2356,7 @@ export default function App() {
   const [recommendPos, setRecommendPos] = useState<Position | null>(null);
   const [closePos, setClosePos] = useState<Position | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [pushAnalysis, setPushAnalysis] = useState<string | null>(null);
 
@@ -2307,9 +2523,20 @@ export default function App() {
 
   useEffect(() => {
     loadAll();
-    const id = setInterval(loadAll, 30_000); // poll every 30s for fast play delivery
+    const id = setInterval(loadAll, 30_000); // full refresh every 30s
     return () => clearInterval(id);
   }, [loadAll]);
+
+  // ── Fast plays-only poll for live updates ─────────────────────────────────
+  useEffect(() => {
+    const fastId = setInterval(async () => {
+      try {
+        const data = await apiFetch('/api/plays');
+        setPlays(data);
+      } catch {}
+    }, 12_000); // check for new plays every 12s
+    return () => clearInterval(fastId);
+  }, []);
 
   // ── Inactivity auto-lock (user-configured timeout) ────────────────────────
   useEffect(() => {
@@ -2434,12 +2661,21 @@ export default function App() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
-        >
-          <Settings className="w-4.5 h-4.5 text-zinc-400" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowHowTo(true)}
+            className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+            title="How to Use"
+          >
+            <BookOpen className="w-4 h-4 text-zinc-400" />
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-colors"
+          >
+            <Settings className="w-4 h-4 text-zinc-400" />
+          </button>
+        </div>
       </header>
 
       {/* Update banner */}
@@ -2552,6 +2788,9 @@ export default function App() {
         )}
         {showSettings && (
           <SettingsModal key="settings" onClose={() => setShowSettings(false)} />
+        )}
+        {showHowTo && (
+          <HowToUseModal key="howto" onClose={() => setShowHowTo(false)} />
         )}
       </AnimatePresence>
 
