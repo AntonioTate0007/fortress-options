@@ -1031,6 +1031,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tier, setTier] = useState<string | null>(null);
   const [biometricAvail, setBiometricAvail] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('fortress_use_biometric') === 'true');
+  const [lockTimeout, setLockTimeout] = useState<string>(localStorage.getItem('fortress_lock_timeout') || '5');
 
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
@@ -1161,11 +1162,39 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               </button>
             )}
 
-            <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl p-4 mb-5 border border-zinc-800">
-              <Lock className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-white">PIN Lock</p>
-                <p className="text-xs text-zinc-500">App locks automatically after 5 min</p>
+            {/* Auto-lock timeout */}
+            <div className="bg-zinc-900 rounded-2xl p-4 mb-5 border border-zinc-800">
+              <div className="flex items-center gap-3 mb-3">
+                <Lock className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Auto-Lock</p>
+                  <p className="text-xs text-zinc-500">Lock app after period of inactivity</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: '1 min',  value: '1' },
+                  { label: '5 min',  value: '5' },
+                  { label: '15 min', value: '15' },
+                  { label: '30 min', value: '30' },
+                  { label: '1 hour', value: '60' },
+                  { label: 'Never',  value: '0' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setLockTimeout(opt.value);
+                      localStorage.setItem('fortress_lock_timeout', opt.value);
+                    }}
+                    className={`py-2 rounded-xl text-sm font-medium transition-colors ${
+                      lockTimeout === opt.value
+                        ? 'bg-emerald-500 text-black'
+                        : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1220,7 +1249,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.7.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -2076,7 +2105,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.7.0';
+  const CURRENT_VERSION = '1.8.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -2250,10 +2279,12 @@ export default function App() {
     return () => clearInterval(id);
   }, [loadAll]);
 
-  // ── Inactivity auto-lock (5 minutes) ──────────────────────────────────────
+  // ── Inactivity auto-lock (user-configured timeout) ────────────────────────
   useEffect(() => {
     if (locked) return;
-    const TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const savedMinutes = parseInt(localStorage.getItem('fortress_lock_timeout') || '5', 10);
+    if (savedMinutes === 0) return; // "Never" — no lock timer
+    const TIMEOUT = savedMinutes * 60 * 1000;
     const resetTimer = () => { lastActivity.current = Date.now(); };
     window.addEventListener('touchstart', resetTimer, { passive: true });
     window.addEventListener('mousedown', resetTimer);
