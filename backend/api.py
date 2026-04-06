@@ -961,6 +961,40 @@ def debug_scan(admin_key: str = ""):
     return {"debug": results, "settings": {"MIN_DTE": MIN_DTE, "MAX_DTE": MAX_DTE, "PREMIUM_MIN": PREMIUM_MIN, "PREMIUM_MAX": PREMIUM_MAX, "OTM_BUFFER": f"{OTM_BUFFER_MIN}-{OTM_BUFFER_MAX}"}}
 
 
+@app.get("/api/admin/debug-fcm")
+def debug_fcm(admin_key: str = ""):
+    """Admin: show FCM init status, registered tokens, and attempt a test push."""
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    import firebase_admin as _fa
+    firebase_initialized = bool(_fa._apps)
+    with get_db() as conn:
+        rows = conn.execute("SELECT api_key, token, updated_at FROM fcm_tokens").fetchall()
+    tokens = [{"api_key": r["api_key"][:12] + "...", "token": r["token"][:20] + "...", "updated_at": r["updated_at"]} for r in rows]
+    # Attempt test send to each token
+    test_results = []
+    if firebase_initialized and rows:
+        for r in rows:
+            try:
+                msg = fcm_messaging.Message(
+                    notification=fcm_messaging.Notification(title="🔔 FCM Test", body="Push is working!"),
+                    data={"tab": "plays"},
+                    android=fcm_messaging.AndroidConfig(priority="high"),
+                    token=r["token"],
+                )
+                resp = fcm_messaging.send(msg)
+                test_results.append({"token": r["token"][:20] + "...", "result": "sent", "message_id": resp})
+            except Exception as e:
+                test_results.append({"token": r["token"][:20] + "...", "result": "failed", "error": str(e)})
+    return {
+        "firebase_initialized": firebase_initialized,
+        "firebase_service_account_set": bool(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")),
+        "registered_tokens": tokens,
+        "token_count": len(tokens),
+        "test_sends": test_results,
+    }
+
+
 @app.post("/api/fcm/register")
 def register_fcm_token(token: str, sub: dict = Depends(require_api_key)):
     """Register or update an FCM device token for the authenticated subscriber."""
