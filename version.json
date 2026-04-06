@@ -1,6 +1,6 @@
 {
-  "latest": "1.7.0",
+  "latest": "1.8.0",
   "min_required": "1.3.0",
-  "download": "https://fortress-options.com/fortress-options-v1.7.0.apk",
-  "changelog": "Better onboarding, loading skeletons, and performance improvements."
+  "download": "https://fortress-options.com/fortress-options-v1.8.0.apk",
+  "changelog": "Auto-lock timeout options in Settings — choose 1 min, 5 min, 15 min, 30 min, 1 hour, or Never."
 }
