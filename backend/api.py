@@ -936,17 +936,20 @@ def debug_scan(admin_key: str = ""):
         raise HTTPException(403, "Unauthorized")
     import io, contextlib
     results = []
-    symbol = "SPY"
-    try:
-        ticker = yf.Ticker(symbol, session=_yf_session)
-        price = float(ticker.fast_info["last_price"])
-        exps = ticker.options
-        results.append({"symbol": symbol, "price": price, "expirations": list(exps[:8])})
-        today = datetime.now()
-        valid_exps = [(e, (datetime.strptime(e, "%Y-%m-%d") - today).days) for e in exps
-                      if MIN_DTE <= (datetime.strptime(e, "%Y-%m-%d") - today).days <= MAX_DTE]
-        results.append({"valid_exps_in_window": valid_exps[:5]})
-        if valid_exps:
+    today = datetime.now()
+    for symbol in WATCHLIST:
+        sym_result = {"symbol": symbol}
+        try:
+            ticker = yf.Ticker(symbol, session=_yf_session)
+            price = float(ticker.fast_info["last_price"])
+            exps = ticker.options
+            sym_result["price"] = round(price, 2)
+            valid_exps = [(e, (datetime.strptime(e, "%Y-%m-%d") - today).days) for e in exps
+                          if MIN_DTE <= (datetime.strptime(e, "%Y-%m-%d") - today).days <= MAX_DTE]
+            if not valid_exps:
+                sym_result["status"] = "no_valid_exp"
+                results.append(sym_result)
+                continue
             exp, dte = valid_exps[0]
             chain = ticker.option_chain(exp)
             puts = chain.puts
@@ -954,7 +957,8 @@ def debug_scan(admin_key: str = ""):
             lower = price * (1 - OTM_BUFFER_MAX)
             upper = price * (1 - OTM_BUFFER_MIN)
             cands = puts_with_bid[(puts_with_bid["strike"] >= lower) & (puts_with_bid["strike"] <= upper)]
-            credits = []
+            best_credit = 0.0
+            qualifying = []
             for _, row in cands.iterrows():
                 short_s = float(row["strike"])
                 long_s = short_s - SPREAD_WIDTH
@@ -962,10 +966,17 @@ def debug_scan(admin_key: str = ""):
                 if not long_row.empty:
                     credit = round(((float(row["bid"]) + float(row["ask"])) / 2) -
                                    ((float(long_row.iloc[0]["bid"]) + float(long_row.iloc[0]["ask"])) / 2), 2)
-                    credits.append({"short": short_s, "long": long_s, "credit": credit, "qualifies": PREMIUM_MIN <= credit <= PREMIUM_MAX})
-            results.append({"exp": exp, "dte": dte, "candidates": len(cands), "credits": credits[:10]})
-    except Exception as e:
-        results.append({"error": str(e)})
+                    best_credit = max(best_credit, credit)
+                    if PREMIUM_MIN <= credit <= PREMIUM_MAX:
+                        qualifying.append({"short": short_s, "long": long_s, "credit": credit, "dte": dte})
+            sym_result["exp"] = exp
+            sym_result["dte"] = dte
+            sym_result["best_credit"] = best_credit
+            sym_result["qualifies"] = len(qualifying) > 0
+            sym_result["qualifying"] = qualifying[:3]
+        except Exception as e:
+            sym_result["error"] = str(e)
+        results.append(sym_result)
     return {"debug": results, "settings": {"MIN_DTE": MIN_DTE, "MAX_DTE": MAX_DTE, "PREMIUM_MIN": PREMIUM_MIN, "PREMIUM_MAX": PREMIUM_MAX, "OTM_BUFFER": f"{OTM_BUFFER_MIN}-{OTM_BUFFER_MAX}"}}
 
 
