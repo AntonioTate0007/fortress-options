@@ -929,6 +929,66 @@ def trigger_scan():
     return {"message": "Scan started"}
 
 
+@app.get("/api/admin/scan-now")
+def scan_now_sync(admin_key: str = ""):
+    """Admin: run full scan synchronously and return per-symbol results."""
+    if admin_key != os.getenv("ADMIN_KEY", "fortress_admin"):
+        raise HTTPException(403, "Unauthorized")
+    today = datetime.now()
+    results = []
+    for symbol in WATCHLIST:
+        r = {"symbol": symbol}
+        try:
+            ticker = yf.Ticker(symbol, session=_yf_session)
+            price = float(ticker.fast_info["last_price"])
+            r["price"] = round(price, 2)
+            exps = ticker.options
+            valid = [(e, (datetime.strptime(e, "%Y-%m-%d") - today).days) for e in exps
+                     if MIN_DTE <= (datetime.strptime(e, "%Y-%m-%d") - today).days <= MAX_DTE]
+            if not valid:
+                r["status"] = "no_exp_in_window"
+                results.append(r)
+                continue
+            exp, dte = valid[0]
+            r["exp"] = exp
+            r["dte"] = dte
+            chain = ticker.option_chain(exp)
+            puts = chain.puts
+            puts = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
+            lower = price * (1 - OTM_BUFFER_MAX)
+            upper = price * (1 - OTM_BUFFER_MIN)
+            cands = puts[(puts["strike"] >= lower) & (puts["strike"] <= upper)]
+            r["candidates"] = len(cands)
+            best = 0.0
+            qualifying = []
+            for _, row in cands.iterrows():
+                ss = float(row["strike"])
+                ls = ss - SPREAD_WIDTH
+                lr = puts[puts["strike"] == ls]
+                if not lr.empty:
+                    c = round(((float(row["bid"]) + float(row["ask"])) / 2) -
+                               ((float(lr.iloc[0]["bid"]) + float(lr.iloc[0]["ask"])) / 2), 2)
+                    best = max(best, c)
+                    if PREMIUM_MIN <= c <= PREMIUM_MAX:
+                        qualifying.append({"short": ss, "long": ls, "credit": c})
+            r["best_credit"] = round(best, 2)
+            r["qualifying_count"] = len(qualifying)
+            r["qualifying"] = qualifying[:3]
+            r["status"] = "found" if qualifying else ("low_credit" if best > 0 else "no_spread")
+        except Exception as e:
+            r["status"] = "error"
+            r["error"] = str(e)
+        results.append(r)
+    # Also show what's in DB right now
+    with get_db() as conn:
+        db_plays = conn.execute("SELECT symbol, short_strike, net_credit, is_active, found_at FROM plays ORDER BY found_at DESC LIMIT 10").fetchall()
+    return {
+        "scan_results": results,
+        "db_plays": [dict(p) for p in db_plays],
+        "market_open": is_market_hours()
+    }
+
+
 @app.get("/api/admin/debug-scan")
 def debug_scan(admin_key: str = ""):
     """Admin: run a single-symbol scan synchronously and return diagnostic output."""
