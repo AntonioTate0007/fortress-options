@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
 import {
@@ -156,6 +156,10 @@ function isMarketJustOpened(): boolean {
   const h = etHour();
   return h >= 9.5 && h < 10.0;
 }
+
+// ─── Theme ───────────────────────────────────────────────────────────────────
+const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: true, toggle: () => {} });
+const useTheme = () => useContext(ThemeContext);
 
 // ─── Shared Components ────────────────────────────────────────────────────────
 
@@ -1016,6 +1020,7 @@ function TelegramSection({ apiKey }: { apiKey: string }) {
 // ─── Settings Modal ───────────────────────────────────────────────────────────
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
+  const { dark, toggle: toggleTheme } = useTheme();
   const [apiKey, setApiKey] = useState(localStorage.getItem('fortress_api_key') || '');
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -1030,7 +1035,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
     // @ts-ignore
-    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
         // @ts-ignore
         BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
@@ -1108,6 +1113,28 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {section === 'security' && (
           <>
+            {/* Dark / Light mode toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-between bg-zinc-900 rounded-2xl p-4 mb-4 border border-zinc-800"
+            >
+              <div className="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {dark
+                    ? <><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></>
+                    : <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  }
+                </svg>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">{dark ? 'Dark Mode' : 'Light Mode'}</p>
+                  <p className="text-xs text-zinc-500">Tap to switch to {dark ? 'light' : 'dark'} mode</p>
+                </div>
+              </div>
+              <div className={`w-11 h-6 rounded-full transition-colors relative ${!dark ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${!dark ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </div>
+            </button>
+
             {biometricAvail && (
               <button
                 onClick={() => {
@@ -1193,7 +1220,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.4.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.5.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1216,7 +1243,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => {
     if (mode !== 'biometric') return;
     // @ts-ignore
-    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       setBiometryAvailable(true);
       triggerBiometric();
     } else {
@@ -1749,7 +1776,7 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
 
   useEffect(() => {
     // @ts-ignore
-    if (window.Capacitor?.isPluginAvailable?.('BiometricAuth')) {
+    if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
         // @ts-ignore
         BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
@@ -1968,6 +1995,12 @@ export default function App() {
   const [locked, setLocked] = useState(true);
   const lastActivity = useRef(Date.now());
   const [tab, setTab] = useState<Tab>('plays');
+  const [dark, setDark] = useState(() => localStorage.getItem('fortress_theme') !== 'light');
+  const toggleTheme = () => setDark(prev => {
+    const next = !prev;
+    localStorage.setItem('fortress_theme', next ? 'dark' : 'light');
+    return next;
+  });
   const [plays, setPlays] = useState<Play[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [history, setHistory] = useState<Position[]>([]);
@@ -2223,7 +2256,8 @@ export default function App() {
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />;
 
   return (
-    <div className="h-screen flex flex-col bg-[#0A0A0B] text-zinc-100 overflow-hidden select-none">
+    <ThemeContext.Provider value={{ dark, toggle: toggleTheme }}>
+    <div className={`h-screen flex flex-col bg-[#0A0A0B] text-zinc-100 overflow-hidden select-none${dark ? '' : ' light-mode'}`}>
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#0D0D0E] border-b border-zinc-800/80">
         <div className="flex items-center gap-3">
@@ -2361,5 +2395,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </ThemeContext.Provider>
   );
 }

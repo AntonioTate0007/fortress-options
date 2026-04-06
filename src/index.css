@@ -1,1 +1,63 @@
 @import "tailwindcss";
+
+/* ── Light Mode Overrides ──────────────────────────────────────────────────── */
+/* Applied when .light-mode is on the root div                                 */
+
+.light-mode {
+  /* Root backgrounds */
+  background-color: #F2F2F7 !important;
+  color: #1C1C1E !important;
+}
+
+/* Header / surface backgrounds */
+.light-mode [class*="bg-[#0A0A0B]"],
+.light-mode [class*="bg-[#0D0D0E]"],
+.light-mode [class*="bg-[#0C0C0D]"],
+.light-mode [class*="bg-[#101012]"],
+.light-mode [class*="bg-[#161618]"],
+.light-mode [class*="bg-[#1C1C1E]"] {
+  background-color: #FFFFFF !important;
+}
+
+.light-mode [class*="bg-zinc-950"] { background-color: #F2F2F7 !important; }
+.light-mode [class*="bg-zinc-900"] { background-color: #E5E5EA !important; }
+.light-mode [class*="bg-zinc-900/"] { background-color: rgba(229,229,234,0.6) !important; }
+.light-mode [class*="bg-zinc-800"] { background-color: #D1D1D6 !important; }
+.light-mode [class*="bg-zinc-700"] { background-color: #C7C7CC !important; }
+
+/* Text colors */
+.light-mode [class*="text-zinc-100"],
+.light-mode [class*="text-white"] { color: #1C1C1E !important; }
+.light-mode [class*="text-zinc-200"] { color: #2C2C2E !important; }
+.light-mode [class*="text-zinc-300"] { color: #3A3A3C !important; }
+.light-mode [class*="text-zinc-400"] { color: #48484A !important; }
+.light-mode [class*="text-zinc-500"] { color: #636366 !important; }
+.light-mode [class*="text-zinc-600"] { color: #8E8E93 !important; }
+
+/* Borders */
+.light-mode [class*="border-zinc-800"] { border-color: #C7C7CC !important; }
+.light-mode [class*="border-zinc-700"] { border-color: #D1D1D6 !important; }
+
+/* Inputs */
+.light-mode input,
+.light-mode textarea {
+  background-color: #FFFFFF !important;
+  color: #1C1C1E !important;
+  border-color: #C7C7CC !important;
+}
+.light-mode input::placeholder,
+.light-mode textarea::placeholder { color: #8E8E93 !important; }
+
+/* Keep emerald/green accents as-is */
+.light-mode [class*="text-emerald"],
+.light-mode [class*="bg-emerald"] { /* keep default */ }
+
+/* Bottom nav */
+.light-mode nav[class*="bg-"] {
+  background-color: #FFFFFF !important;
+  border-color: #C7C7CC !important;
+}
+
+/* Hover states */
+.light-mode [class*="hover:bg-zinc-700"]:hover { background-color: #C7C7CC !important; }
+.light-mode [class*="hover:bg-zinc-800"]:hover { background-color: #D1D1D6 !important; }
