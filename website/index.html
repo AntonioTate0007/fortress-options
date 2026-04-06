@@ -1,4 +1,4 @@
-﻿<!-- Fortress Options v2.1.0 -->
+﻿<!-- Fortress Options v2.2.0 -->
 <!DOCTYPE html>
 
 <html class="dark" lang="en"><head>
@@ -105,10 +105,17 @@
 <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="mailto:support@fortress-options.com">Support</a>
 </div>
 <div class="flex items-center gap-3">
-<button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-primary/50 hover:bg-surface-container transition-all">
-  <span id="theme-icon" class="material-symbols-outlined text-primary text-[20px]">light_mode</span>
+<button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-primary/50 bg-surface-container hover:bg-surface-container-high transition-all">
+  <!-- sun icon (shown in dark mode, click to go light) -->
+  <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+  <!-- moon icon (shown in light mode, click to go dark) -->
+  <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a550" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
 </button>
-<a href="/fortress-options-v1.3.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+<a href="/fortress-options-v1.4.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
 </div>
 </nav>
 </header>
@@ -129,9 +136,9 @@
                     The Obsidian Command Center for mobile traders. Sophisticated Greeks, real-time risk metrics, and one-tap execution in a professional dark-mode interface.
                 </p>
 <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-<a href="/fortress-options-v1.3.0.apk" class="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
+<a href="/fortress-options-v1.4.0.apk" class="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
 <span class="material-symbols-outlined" data-icon="android" style="font-variation-settings: 'FILL' 1;">android</span>
-                        Download APK v1.3.0
+                        Download APK v1.4.0
                     </a>
 <a href="#how-it-works" class="w-full sm:w-auto px-8 py-4 bg-surface-container-highest text-on-surface font-semibold rounded-xl hover:bg-surface-bright transition-all text-center">
                         How It Works
@@ -649,14 +656,17 @@
   let _lightStyleEl = null;
   function applyTheme(dark) {
     const html = document.documentElement;
-    const icon = document.getElementById('theme-icon');
+    const sun = document.getElementById('theme-icon-sun');
+    const moon = document.getElementById('theme-icon-moon');
     if (dark) {
       html.classList.add('dark');
-      if (icon) icon.textContent = 'light_mode';
+      if (sun) sun.style.display = '';
+      if (moon) moon.style.display = 'none';
       if (_lightStyleEl) { _lightStyleEl.textContent = ''; }
     } else {
       html.classList.remove('dark');
-      if (icon) icon.textContent = 'dark_mode';
+      if (sun) sun.style.display = 'none';
+      if (moon) moon.style.display = '';
       if (!_lightStyleEl) {
         _lightStyleEl = document.createElement('style');
         _lightStyleEl.id = 'light-overrides';
@@ -737,9 +747,9 @@
 <h2 class="text-4xl md:text-6xl font-headline font-extrabold mb-8 tracking-tighter">Ready for the Next Level?</h2>
 <p class="text-on-surface-variant text-lg mb-12 max-w-xl mx-auto">Subscribe, download the app, and start getting high-probability options plays delivered to your phone.</p>
 <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
-<a href="/fortress-options-v1.3.0.apk" class="flex items-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
+<a href="/fortress-options-v1.4.0.apk" class="flex items-center gap-3 px-8 py-4 bg-primary text-on-primary font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_12px_24px_rgba(0,230,118,0.15)]">
   <span class="material-symbols-outlined" data-icon="android" style="font-variation-settings: 'FILL' 1;">android</span>
-  Download APK v1.3.0
+  Download APK v1.4.0
 </a>
 </div>
 </div>
@@ -778,7 +788,7 @@
       <ul class="space-y-3">
         <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="strategies.html">Strategies</a></li>
         <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="#pricing">Pricing</a></li>
-        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/fortress-options-v1.3.0.apk">Download App</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/fortress-options-v1.4.0.apk">Download App</a></li>
       </ul>
     </div>
     <div>
