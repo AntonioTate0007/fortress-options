@@ -4,7 +4,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import {
   Shield, RefreshCw, Settings, Bell, TrendingUp,
   AlertTriangle, X, Target, BarChart2, BookOpen, Loader2,
-  Fingerprint, Lock, KeyRound, Clock, Trash2,
+  Fingerprint, Lock, KeyRound, Clock, Trash2, CalendarDays,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -93,7 +93,7 @@ interface BotStatus {
   scanning: boolean;
 }
 
-type Tab = 'plays' | 'positions' | 'history' | 'alerts';
+type Tab = 'plays' | 'positions' | 'history' | 'alerts' | 'earnings';
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -1193,7 +1193,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.2.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.3.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1642,6 +1642,56 @@ function AlertsScreen({
   );
 }
 
+// ─── Earnings Screen ─────────────────────────────────────────────────────────
+
+interface EarningsEvent {
+  ticker: string;
+  company: string;
+  date: string;
+  time: 'Before Open' | 'After Close';
+  tier: 'pro' | 'all';
+}
+
+const EARNINGS: EarningsEvent[] = [
+  { ticker: 'GOOGL', company: 'Alphabet Inc.',      date: 'Apr 29, 2025', time: 'After Close', tier: 'pro' },
+  { ticker: 'META',  company: 'Meta Platforms',     date: 'Apr 30, 2025', time: 'After Close', tier: 'pro' },
+  { ticker: 'MSFT',  company: 'Microsoft Corp.',    date: 'Apr 30, 2025', time: 'After Close', tier: 'pro' },
+  { ticker: 'AAPL',  company: 'Apple Inc.',         date: 'May 1, 2025',  time: 'After Close', tier: 'pro' },
+  { ticker: 'AMZN',  company: 'Amazon.com Inc.',    date: 'May 1, 2025',  time: 'After Close', tier: 'pro' },
+  { ticker: 'NVDA',  company: 'NVIDIA Corp.',       date: 'May 28, 2025', time: 'After Close', tier: 'pro' },
+];
+
+function EarningsScreen() {
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3">
+      <div className="mb-4">
+        <h2 className="text-white text-xl font-bold">Upcoming Earnings</h2>
+        <p className="text-zinc-500 text-sm mt-1">AI-scored options plays delivered at market open.</p>
+      </div>
+      {EARNINGS.map((e) => (
+        <div key={e.ticker} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-emerald-400 text-xs font-extrabold">{e.ticker}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm">{e.ticker}</p>
+            <p className="text-zinc-500 text-xs truncate">{e.company}</p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-white text-xs font-medium">{e.date}</p>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${
+              e.time === 'Before Open'
+                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+            }`}>{e.time}</span>
+          </div>
+        </div>
+      ))}
+      <p className="text-center text-zinc-600 text-xs pt-2 pb-4">Pro &amp; Elite subscribers get plays automatically.</p>
+    </div>
+  );
+}
+
 // ─── Bottom Navigation ────────────────────────────────────────────────────────
 
 function BottomNav({
@@ -1654,6 +1704,7 @@ function BottomNav({
   const items: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'plays',     label: 'Plays',     icon: <Target className="w-5 h-5" /> },
     { id: 'positions', label: 'Positions', icon: <BarChart2 className="w-5 h-5" /> },
+    { id: 'earnings',  label: 'Earnings',  icon: <CalendarDays className="w-5 h-5" /> },
     { id: 'history',   label: 'History',   icon: <BookOpen className="w-5 h-5" /> },
     { id: 'alerts',    label: 'Alerts',    icon: <Bell className="w-5 h-5" /> },
   ];
@@ -2215,6 +2266,11 @@ export default function App() {
         {tab === 'positions' && (
           <motion.div key="positions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
             <PositionsScreen positions={positions} loading={loading} onRefresh={loadAll} onRecommend={setRecommendPos} onClose={setClosePos} />
+          </motion.div>
+        )}
+        {tab === 'earnings' && (
+          <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+            <EarningsScreen />
           </motion.div>
         )}
         {tab === 'history' && (
