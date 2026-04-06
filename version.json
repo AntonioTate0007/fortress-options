@@ -1,6 +1,6 @@
 {
-  "latest": "1.8.1",
+  "latest": "1.8.2",
   "min_required": "1.3.0",
-  "download": "https://fortress-options.com/fortress-options-v1.8.1.apk",
-  "changelog": "Fixed push notifications on Android 13+ devices."
+  "download": "https://fortress-options.com/fortress-options-v1.8.2.apk",
+  "changelog": "Fixed push notifications — notification channels now created on first launch."
 }
