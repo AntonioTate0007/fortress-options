@@ -20,21 +20,25 @@ import schedule as sch
 import uvicorn
 
 # ─── Firebase / FCM ──────────────────────────────────────────────────────────
+fcm_messaging = None  # None = push disabled
 try:
     import firebase_admin
-    from firebase_admin import credentials, messaging as fcm_messaging
+    from firebase_admin import credentials, messaging as _fcm_messaging_module
 
     _firebase_key = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
-    if _firebase_key and not firebase_admin._apps:
-        import json as _json
-        _cred = credentials.Certificate(_json.loads(_firebase_key))
-        firebase_admin.initialize_app(_cred)
-        print("[FCM] Firebase Admin initialized.")
+    if _firebase_key:
+        if not firebase_admin._apps:
+            import json as _json
+            _cred = credentials.Certificate(_json.loads(_firebase_key))
+            firebase_admin.initialize_app(_cred)
+        fcm_messaging = _fcm_messaging_module
+        print("[FCM] Firebase Admin initialized — push enabled.")
     else:
         print("[FCM] FIREBASE_SERVICE_ACCOUNT_JSON not set — push disabled.")
 except ImportError:
-    fcm_messaging = None
     print("[FCM] firebase-admin not installed — push disabled.")
+except Exception as _fcm_init_err:
+    print(f"[FCM] Init error: {_fcm_init_err} — push disabled.")
 import yfinance as yf
 try:
     from curl_cffi import requests as _curl_requests
