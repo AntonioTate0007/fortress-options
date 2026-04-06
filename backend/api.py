@@ -243,6 +243,7 @@ def scan_and_save(force: bool = False):
 
         print(f"[{datetime.now():%H:%M:%S}] Running Fortress scan...")
         with get_db() as conn:
+            # Mark current plays as not-latest (but keep them visible today)
             conn.execute("UPDATE plays SET is_active = 0 WHERE is_active = 1")
             conn.commit()
 
@@ -905,14 +906,17 @@ def blast_email(req: BlastRequest):
 
 @app.get("/api/plays")
 def get_plays(sub: dict = Depends(require_api_key)):
-    """Returns plays filtered by subscriber tier."""
+    """Returns all plays found today, latest scan first."""
     tier_symbols = TIERS.get(sub.get("tier", "basic"), TIERS["basic"])["symbols"]
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM plays WHERE is_active=1 AND expiration >= date('now') ORDER BY score DESC, net_credit DESC"
+            """SELECT * FROM plays
+               WHERE expiration >= date('now')
+               AND date(created_at) = date('now', 'localtime')
+               ORDER BY is_active DESC, score DESC, net_credit DESC"""
         ).fetchall()
     plays = [dict(r) for r in rows]
-    # Filter by tier (Basic only gets SPY/QQQ)
+    # Filter by tier
     if sub.get("tier") != "elite" and sub.get("tier") != "pro":
         plays = [p for p in plays if p["symbol"] in tier_symbols]
     return plays

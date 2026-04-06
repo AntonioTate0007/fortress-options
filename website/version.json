@@ -1,6 +1,6 @@
 {
-  "latest": "1.8.2",
+  "latest": "1.8.3",
   "min_required": "1.3.0",
-  "download": "https://fortress-options.com/fortress-options-v1.8.2.apk",
-  "changelog": "Fixed push notifications — notification channels now created on first launch."
+  "download": "https://fortress-options.com/fortress-options-v1.8.3.apk",
+  "changelog": "Plays now stay visible all day — see Latest and Earlier Today labels."
 }

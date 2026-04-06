@@ -37,6 +37,7 @@ interface Play {
   open_interest: number;
   iv: number;
   found_at: string;
+  is_active: number;
   ai_analysis?: string;
 }
 
@@ -239,6 +240,15 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-2xl font-bold text-white">{play.symbol}</span>
             <ScoreBadge score={play.score} />
+            {play.is_active === 1 ? (
+              <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full font-medium">
+                Latest
+              </span>
+            ) : (
+              <span className="text-[10px] text-zinc-500 bg-zinc-800 border border-zinc-700/50 px-2 py-0.5 rounded-full font-medium">
+                Earlier Today
+              </span>
+            )}
             {play.play_type === 'earnings' && (
               <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">
                 Earnings
@@ -1249,7 +1259,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.2{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.3{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -2105,7 +2115,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.8.2';
+  const CURRENT_VERSION = '1.8.3';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
