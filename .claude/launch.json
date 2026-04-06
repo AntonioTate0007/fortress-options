@@ -12,6 +12,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "4321", "website/screenshots"],
       "port": 4321
+    },
+    {
+      "name": "Fortress Website",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "4322", "website"],
+      "port": 4322
     }
   ]
 }

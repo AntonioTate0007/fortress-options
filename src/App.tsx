@@ -1249,7 +1249,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.1{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.2{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -2105,7 +2105,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.8.1';
+  const CURRENT_VERSION = '1.8.2';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -2162,6 +2162,28 @@ export default function App() {
   const firstPlayLoad = useRef(true);
 
   useEffect(() => {
+    // Create required notification channels (Android 8+ requires this)
+    LocalNotifications.createChannel({
+      id: 'fortress_plays',
+      name: 'Fortress Plays',
+      description: 'New options play alerts',
+      importance: 5, // IMPORTANCE_HIGH
+      sound: 'fortress_alert',
+      vibration: true,
+      lights: true,
+      lightColor: '#10b981',
+    }).catch(() => {});
+    LocalNotifications.createChannel({
+      id: 'fortress_alerts',
+      name: 'Fortress Alerts',
+      description: 'Position profit/loss alerts',
+      importance: 5,
+      sound: 'fortress_alert',
+      vibration: true,
+      lights: true,
+      lightColor: '#f59e0b',
+    }).catch(() => {});
+
     // Request local notification permission
     LocalNotifications.requestPermissions().catch(() => {});
 
