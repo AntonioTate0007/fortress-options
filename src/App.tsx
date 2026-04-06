@@ -1249,7 +1249,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.8.1{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -2105,7 +2105,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.8.0';
+  const CURRENT_VERSION = '1.8.1';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
