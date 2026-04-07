@@ -1337,6 +1337,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [profitTarget, setProfitTarget] = useState<number>(
     Number(localStorage.getItem('fortress_profit_target') || '50')
   );
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
@@ -1381,6 +1382,20 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
     localStorage.setItem('fortress_api_key', apiKey);
     onClose();
     window.location.reload();
+  };
+
+  const openBillingPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const data = await apiFetch('/api/billing-portal', { method: 'POST' });
+      if (data.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch {
+      alert('Could not open billing portal. Please email support@fortress-options.com.');
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   const savePin = () => {
@@ -1455,6 +1470,25 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             >
               Save & Reconnect
             </button>
+
+            {tier && (
+              <div className="mt-4 pt-4 border-t border-zinc-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white capitalize">{tier} Plan</p>
+                    <p className="text-xs text-zinc-500">Manage billing, cancel, or update payment</p>
+                  </div>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 capitalize">{tier}</span>
+                </div>
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors border border-zinc-700"
+                >
+                  {portalLoading ? 'Opening…' : 'Manage Subscription →'}
+                </button>
+              </div>
+            )}
           </>
         )}
 

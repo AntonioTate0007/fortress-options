@@ -947,6 +947,22 @@ async def stripe_webhook(request: Request):
     return {"received": True}
 
 
+@app.post("/api/billing-portal")
+def billing_portal(sub: dict = Depends(require_api_key)):
+    """Create a Stripe Customer Portal session so the user can manage or cancel their subscription."""
+    customer_id = sub.get("stripe_customer_id")
+    if not customer_id:
+        raise HTTPException(400, "No billing account found for this API key.")
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url="https://fortress-options.com/",
+        )
+        return {"url": session.url}
+    except Exception as e:
+        raise HTTPException(500, f"Stripe error: {e}")
+
+
 @app.post("/api/admin/grant")
 def admin_grant(email: str, tier: str = "pro", admin_key: str = "", api_key: str = ""):
     """Admin endpoint to manually grant access. Optionally supply a specific api_key."""
