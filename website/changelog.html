@@ -1,0 +1,333 @@
+<!-- Fortress Options — Changelog -->
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>What's New | Fortress Options</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "on-tertiary-fixed": "#2d1600",
+          "on-primary-fixed-variant": "#005226",
+          "background": "#131313",
+          "surface-variant": "#353534",
+          "primary": "#75ff9e",
+          "on-error-container": "#ffdad6",
+          "surface-dim": "#131313",
+          "surface-container-highest": "#353534",
+          "on-error": "#690005",
+          "on-secondary": "#002d6e",
+          "on-tertiary": "#4b2800",
+          "primary-fixed-dim": "#00e475",
+          "on-primary-container": "#00612e",
+          "on-secondary-fixed-variant": "#00429b",
+          "tertiary-fixed-dim": "#fdb878",
+          "on-primary": "#003918",
+          "secondary-fixed": "#d9e2ff",
+          "surface-container-lowest": "#0e0e0e",
+          "surface": "#131313",
+          "error-container": "#93000a",
+          "surface-container-low": "#1c1b1b",
+          "secondary-fixed-dim": "#b0c6ff",
+          "secondary-container": "#0068ed",
+          "surface-container": "#201f1f",
+          "tertiary": "#ffdec4",
+          "surface-tint": "#00e475",
+          "on-secondary-container": "#f2f3ff",
+          "on-primary-fixed": "#00210b",
+          "inverse-on-surface": "#313030",
+          "on-tertiary-container": "#794810",
+          "inverse-primary": "#006d35",
+          "inverse-surface": "#e5e2e1",
+          "surface-container-high": "#2a2a2a",
+          "tertiary-fixed": "#ffdcbf",
+          "on-surface": "#e5e2e1",
+          "secondary": "#b0c6ff",
+          "outline-variant": "#3b4a3d",
+          "outline": "#859585",
+          "surface-bright": "#393939",
+          "on-background": "#e5e2e1",
+          "error": "#ffb4ab",
+          "on-secondary-fixed": "#001945",
+          "on-tertiary-fixed-variant": "#6a3c03",
+          "primary-container": "#00e676",
+          "on-surface-variant": "#bacbb9",
+          "tertiary-container": "#ffba79",
+          "primary-fixed": "#62ff96"
+        },
+        fontFamily: {
+          "headline": ["Manrope"],
+          "body": ["Inter"],
+          "label": ["Inter"]
+        },
+        borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; transition: background-color 0.3s, color 0.3s; }
+  .font-headline { font-family: 'Manrope', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(32, 31, 31, 0.6); backdrop-filter: blur(20px); }
+  .glow-primary { box-shadow: 0 0 20px rgba(117, 255, 158, 0.15); }
+  * { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease; }
+</style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
+
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#0E0E0E] no-border">
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
+<a href="/" class="flex items-center gap-2.5 no-underline">
+  <div style="width:34px;height:34px;background:linear-gradient(135deg,#00e475,#00c896);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(0,228,117,0.35);flex-shrink:0;">
+    <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 0L0 3.5V9.5C0 14.5 3.9 19.2 9 20C14.1 19.2 18 14.5 18 9.5V3.5L9 0Z" fill="#003918"/>
+      <path d="M9 3L2.5 5.7V10.3C2.5 13.9 5.3 17.2 9 18C12.7 17.2 15.5 13.9 15.5 10.3V5.7L9 3Z" fill="#00e475" fill-opacity="0.15"/>
+      <path d="M7.5 10.5L6 9L5 10L7.5 12.5L13 7L12 6L7.5 10.5Z" fill="#00e475"/>
+    </svg>
+  </div>
+  <span class="text-xl font-bold tracking-tighter text-[#E5E2E1] font-headline">Fortress Options</span>
+</a>
+<div class="hidden md:flex items-center gap-8">
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#how-it-works">How It Works</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#earnings">Earnings</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#pricing">Pricing</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="mailto:support@fortress-options.com">Support</a>
+  <a class="text-label text-sm font-medium text-[#75FF9E] border-b-2 border-[#75FF9E] pb-1" href="changelog.html">What's New</a>
+</div>
+<div class="flex items-center gap-3">
+  <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-primary/50 bg-surface-container hover:bg-surface-container-high transition-all">
+    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a550" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+  <a href="/fortress-v2.1.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+</div>
+</nav>
+</header>
+
+<main class="pt-24">
+  <section class="py-24 px-6">
+    <div class="max-w-3xl mx-auto">
+
+      <!-- Page header -->
+      <div class="mb-14">
+        <p class="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Release History</p>
+        <h1 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1] mb-4">What's New</h1>
+        <p class="text-[#BACBB9] text-sm">Every release, every fix — newest first.</p>
+      </div>
+
+      <!-- v2.1.0 -->
+      <div class="mb-8 rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-7">
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span class="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-bold tracking-wide">v2.1.0</span>
+          <span class="px-2.5 py-1 rounded-full bg-[#00e475]/15 border border-[#00e475]/40 text-[#00e475] text-xs font-bold tracking-wide">Latest</span>
+          <span class="text-[#BACBB9] text-xs">April 6, 2026</span>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-[#BACBB9] text-sm leading-relaxed">
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Iron Condors strategy</strong> — scan for four-leg iron condors with configurable wing widths</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">CSV Export</strong> — export full trade history with one tap</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">P&amp;L Payoff Chart</strong> — interactive profit/loss visualization at expiration</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Custom Alert Target</strong> — get notified when a position hits your personal profit goal</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Earnings Filter</strong> — exclude or target tickers with earnings inside the expiration window</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Home Screen Widget</strong> — live at-a-glance open positions and daily P&amp;L on your home screen</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">DNS fix</strong> — resolved www subdomain routing for fortress-options.com</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- v2.0.0 -->
+      <div class="mb-8 rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-7">
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span class="px-2.5 py-1 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 text-[#BACBB9] text-xs font-bold tracking-wide">v2.0.0</span>
+          <span class="text-[#BACBB9] text-xs">March 2026</span>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-[#BACBB9] text-sm leading-relaxed">
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Complete UI redesign</strong> — dark theme overhaul with Material You color system</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Push notifications via Firebase</strong> — real-time trade signal alerts to your device</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Scan engine rewrite</strong> — 30-minute intervals synchronized to market hours</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Multi-strategy support</strong> — run multiple strategies simultaneously from a single screen</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- v1.9.0 -->
+      <div class="mb-8 rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-7">
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span class="px-2.5 py-1 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 text-[#BACBB9] text-xs font-bold tracking-wide">v1.9.0</span>
+          <span class="text-[#BACBB9] text-xs">February 2026</span>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-[#BACBB9] text-sm leading-relaxed">
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Improved signal scoring</strong> — refined scoring model for higher-quality play selection</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Bug fixes and performance improvements</strong></span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- v1.8.x -->
+      <div class="mb-8 rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-7">
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span class="px-2.5 py-1 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 text-[#BACBB9] text-xs font-bold tracking-wide">v1.8.x</span>
+          <span class="text-[#BACBB9] text-xs">January 2026</span>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-[#BACBB9] text-sm leading-relaxed">
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Spreads strategy</strong> — bull call spreads and bear put spreads added to the scanner</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Settings screen overhaul</strong> — cleaner layout with grouped controls and inline validation</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- v1.5.0 -->
+      <div class="mb-8 rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-7">
+        <div class="flex flex-wrap items-center gap-3 mb-1">
+          <span class="px-2.5 py-1 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 text-[#BACBB9] text-xs font-bold tracking-wide">v1.5.0</span>
+          <span class="text-[#BACBB9] text-xs">December 2025</span>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-[#BACBB9] text-sm leading-relaxed">
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Initial public release</strong></span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">Covered calls and cash-secured puts</strong> — first two core strategies at launch</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong class="text-[#E5E2E1]">API key authentication</strong> — subscription-gated access via unique per-user API keys</span>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- Footer -->
+<footer class="w-full border-t border-[#3B4A3D]/15 bg-[#0E0E0E] py-12">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-start justify-between gap-10">
+  <div class="max-w-xs">
+    <div class="text-lg font-bold text-[#E5E2E1] mb-3">Fortress Options</div>
+    <p class="text-[11px] leading-relaxed text-[#BACBB9]">
+      High-probability options plays, scored and filtered for retail traders. Not financial advice.
+    </p>
+    <p class="text-[11px] text-[#BACBB9] mt-4">© 2026 Fortress Options. All rights reserved.</p>
+  </div>
+  <div class="flex flex-col sm:flex-row gap-12">
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Product</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="strategies.html">Strategies</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/#pricing">Pricing</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/fortress-v2.1.0.apk">Download App</a></li>
+        <li><a class="text-xs text-[#75FF9E]" href="changelog.html">What's New</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Support</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="mailto:support@fortress-options.com">support@fortress-options.com</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="support.html">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Legal</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="terms.html">Terms of Service</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="privacy.html">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+  const LIGHT_CSS = `
+    body { background-color: #f4f7f4 !important; color: #1a2e1c !important; }
+    header { background-color: rgba(255,255,255,0.96) !important; border-bottom: 1px solid #ddeadf !important; }
+    header a, header span.font-headline { color: #1a2e1c !important; }
+    .bg-background, .bg-surface-dim, section { background-color: #f4f7f4 !important; }
+    .bg-surface-container { background-color: #ffffff !important; }
+    .text-on-surface { color: #1a2e1c !important; }
+    .text-on-surface-variant { color: #4a6b50 !important; }
+    .text-primary { color: #006d35 !important; }
+    .bg-gradient-to-r { background: linear-gradient(to right, #006d35, #009648) !important; }
+    footer { background-color: #1a2e1c !important; }
+    footer * { color: #b8d4bc !important; }
+  `;
+  let _lightStyleEl = null;
+  function applyTheme(isDark) {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.getElementById('theme-icon-sun').style.display = '';
+      document.getElementById('theme-icon-moon').style.display = 'none';
+      if (_lightStyleEl) _lightStyleEl.textContent = '';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.getElementById('theme-icon-sun').style.display = 'none';
+      document.getElementById('theme-icon-moon').style.display = '';
+      if (!_lightStyleEl) { _lightStyleEl = document.createElement('style'); document.head.appendChild(_lightStyleEl); }
+      _lightStyleEl.textContent = LIGHT_CSS;
+    }
+  }
+  function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('fortress-theme', isDark ? 'light' : 'dark');
+    applyTheme(!isDark);
+  }
+  applyTheme(localStorage.getItem('fortress-theme') !== 'light');
+</script>
+</body>
+</html>

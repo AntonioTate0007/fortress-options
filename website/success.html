@@ -1,50 +1,321 @@
+<!-- Fortress Options — Welcome / Post-Purchase Onboarding -->
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html class="dark" lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Welcome — Fortress Options</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config = { darkMode: 'class' }</script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <style>body { font-family: 'Inter', sans-serif; background: #0A0A0B; color: #e4e4e7; }</style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Welcome to Fortress Options</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "on-tertiary-fixed": "#2d1600",
+          "on-primary-fixed-variant": "#005226",
+          "background": "#131313",
+          "surface-variant": "#353534",
+          "primary": "#75ff9e",
+          "on-error-container": "#ffdad6",
+          "surface-dim": "#131313",
+          "surface-container-highest": "#353534",
+          "on-error": "#690005",
+          "on-secondary": "#002d6e",
+          "on-tertiary": "#4b2800",
+          "primary-fixed-dim": "#00e475",
+          "on-primary-container": "#00612e",
+          "on-secondary-fixed-variant": "#00429b",
+          "tertiary-fixed-dim": "#fdb878",
+          "on-primary": "#003918",
+          "secondary-fixed": "#d9e2ff",
+          "surface-container-lowest": "#0e0e0e",
+          "surface": "#131313",
+          "error-container": "#93000a",
+          "surface-container-low": "#1c1b1b",
+          "secondary-fixed-dim": "#b0c6ff",
+          "secondary-container": "#0068ed",
+          "surface-container": "#201f1f",
+          "tertiary": "#ffdec4",
+          "surface-tint": "#00e475",
+          "on-secondary-container": "#f2f3ff",
+          "on-primary-fixed": "#00210b",
+          "inverse-on-surface": "#313030",
+          "on-tertiary-container": "#794810",
+          "inverse-primary": "#006d35",
+          "inverse-surface": "#e5e2e1",
+          "surface-container-high": "#2a2a2a",
+          "tertiary-fixed": "#ffdcbf",
+          "on-surface": "#e5e2e1",
+          "secondary": "#b0c6ff",
+          "outline-variant": "#3b4a3d",
+          "outline": "#859585",
+          "surface-bright": "#393939",
+          "on-background": "#e5e2e1",
+          "error": "#ffb4ab",
+          "on-secondary-fixed": "#001945",
+          "on-tertiary-fixed-variant": "#6a3c03",
+          "primary-container": "#00e676",
+          "on-surface-variant": "#bacbb9",
+          "tertiary-container": "#ffba79",
+          "primary-fixed": "#62ff96"
+        },
+        fontFamily: {
+          "headline": ["Manrope"],
+          "body": ["Inter"],
+          "label": ["Inter"]
+        },
+        borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+      },
+    },
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #131313; color: #E5E2E1; transition: background-color 0.3s, color 0.3s; }
+  .font-headline { font-family: 'Manrope', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(32, 31, 31, 0.6); backdrop-filter: blur(20px); }
+  .glow-primary { box-shadow: 0 0 20px rgba(117, 255, 158, 0.15); }
+  .hero-gradient { background: radial-gradient(circle at 50% 0%, rgba(0, 230, 118, 0.07) 0%, transparent 60%); }
+  * { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease; }
+</style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center px-4">
-  <div class="max-w-md w-full text-center">
-    <div class="w-20 h-20 bg-emerald-500/20 border-2 border-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">🏰</div>
-    <h1 class="text-3xl font-bold text-white mb-2">You're In!</h1>
-    <p class="text-zinc-400 mb-8">Your API key has been sent to your email. Check your inbox (and spam folder).</p>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
 
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6 text-left">
-      <p class="text-sm font-semibold text-white mb-4">Get started in 3 steps:</p>
-      <div class="space-y-4">
-        <div class="flex gap-3">
-          <div class="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-black text-xs font-bold flex-shrink-0">1</div>
-          <div>
-            <p class="text-sm font-semibold text-white">Download the app</p>
-            <a href="/fortress-v2.1.0.apk" class="text-xs text-emerald-400 hover:underline">fortress-v2.1.0.apk →</a>
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#0E0E0E] no-border">
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-7xl mx-auto">
+<a href="/" class="flex items-center gap-2.5 no-underline">
+  <div style="width:34px;height:34px;background:linear-gradient(135deg,#00e475,#00c896);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(0,228,117,0.35);flex-shrink:0;">
+    <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 0L0 3.5V9.5C0 14.5 3.9 19.2 9 20C14.1 19.2 18 14.5 18 9.5V3.5L9 0Z" fill="#003918"/>
+      <path d="M9 3L2.5 5.7V10.3C2.5 13.9 5.3 17.2 9 18C12.7 17.2 15.5 13.9 15.5 10.3V5.7L9 3Z" fill="#00e475" fill-opacity="0.15"/>
+      <path d="M7.5 10.5L6 9L5 10L7.5 12.5L13 7L12 6L7.5 10.5Z" fill="#00e475"/>
+    </svg>
+  </div>
+  <span class="text-xl font-bold tracking-tighter text-[#E5E2E1] font-headline">Fortress Options</span>
+</a>
+<div class="hidden md:flex items-center gap-8">
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#how-it-works">How It Works</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#earnings">Earnings</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="/#pricing">Pricing</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="mailto:support@fortress-options.com">Support</a>
+  <a class="text-label text-sm font-medium text-[#BACBB9] hover:text-[#E5E2E1] transition-colors" href="changelog.html">What's New</a>
+</div>
+<div class="flex items-center gap-3">
+  <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" class="w-9 h-9 flex items-center justify-center rounded-xl border border-primary/50 bg-surface-container hover:bg-surface-container-high transition-all">
+    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a550" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+  <a href="/fortress-v2.1.0.apk" class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_20px_rgba(117,255,158,0.2)]">Get App</a>
+</div>
+</nav>
+</header>
+
+<main class="pt-24">
+
+  <!-- Hero -->
+  <section class="hero-gradient py-20 px-6 text-center relative overflow-hidden">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="relative z-10 max-w-2xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container-high border border-outline-variant/20 mb-6">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        <span class="text-xs font-medium text-[#BACBB9]">Purchase confirmed</span>
+      </div>
+      <div class="w-20 h-20 mx-auto mb-6 flex items-center justify-center rounded-2xl text-5xl" style="background:linear-gradient(135deg,rgba(0,228,117,0.15),rgba(0,228,117,0.05));border:1px solid rgba(0,228,117,0.25);box-shadow:0 0 40px rgba(0,228,117,0.12);">🏰</div>
+      <h1 class="font-headline text-4xl md:text-5xl font-extrabold tracking-tighter text-[#E5E2E1] mb-4">You're In!</h1>
+      <p class="text-[#BACBB9] text-lg leading-relaxed max-w-lg mx-auto">Welcome to Fortress Options. Your API key is on its way — check your inbox (and spam folder). Follow the three steps below to get scanning in minutes.</p>
+    </div>
+  </section>
+
+  <!-- 3-Step Setup -->
+  <section class="py-16 px-6">
+    <div class="max-w-2xl mx-auto">
+      <p class="text-xs font-semibold uppercase tracking-widest text-primary mb-10 text-center">Get Started</p>
+
+      <!-- Step 1 — Download -->
+      <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-8 mb-5 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-[60px] pointer-events-none"></div>
+        <div class="flex gap-5 items-start relative z-10">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm">1</div>
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-1">
+              <h2 class="font-headline text-lg font-bold text-[#E5E2E1]">Download the App</h2>
+              <span class="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-[11px] font-semibold tracking-wide">v2.1.0</span>
+            </div>
+            <p class="text-[#BACBB9] text-sm mb-5">Tap the button below to download the Fortress Options APK directly to your Android device. Allow installs from unknown sources when prompted.</p>
+            <a href="/fortress-v2.1.0.apk" class="inline-flex items-center gap-2.5 px-7 py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-md hover:opacity-90 transition-all active:scale-95 shadow-[0_0_24px_rgba(117,255,158,0.25)] text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download fortress-v2.1.0.apk
+            </a>
           </div>
         </div>
-        <div class="flex gap-3">
-          <div class="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-black text-xs font-bold flex-shrink-0">2</div>
-          <div>
-            <p class="text-sm font-semibold text-white">Open Settings → paste your API key</p>
-            <p class="text-xs text-zinc-500">Find it in the email we just sent you</p>
+      </div>
+
+      <!-- Step 2 — API Key -->
+      <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-8 mb-5">
+        <div class="flex gap-5 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 flex items-center justify-center text-[#BACBB9] font-bold text-sm">2</div>
+          <div class="flex-1">
+            <h2 class="font-headline text-lg font-bold text-[#E5E2E1] mb-1">Paste Your API Key</h2>
+            <p class="text-[#BACBB9] text-sm mb-4">Open the app, go to <strong class="text-[#E5E2E1]">Settings</strong>, and paste the API key from your confirmation email.</p>
+            <div class="rounded-lg bg-[#201F1F] border border-[#353534] px-4 py-3 flex items-start gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#75ff9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <p class="text-[#BACBB9] text-xs leading-relaxed">Can't find the email? Check your <strong class="text-[#E5E2E1]">spam or promotions folder</strong>. Still missing? Email <a href="mailto:support@fortress-options.com" class="text-primary hover:underline">support@fortress-options.com</a>.</p>
+            </div>
           </div>
         </div>
-        <div class="flex gap-3">
-          <div class="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center text-black text-xs font-bold flex-shrink-0">3</div>
-          <div>
-            <p class="text-sm font-semibold text-white">Watch the plays roll in</p>
-            <p class="text-xs text-zinc-500">Scanner runs every 30 min during market hours</p>
+      </div>
+
+      <!-- Step 3 — Notifications -->
+      <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-8 py-8">
+        <div class="flex gap-5 items-start">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-[#2A2A2A] border border-[#3B4A3D]/60 flex items-center justify-center text-[#BACBB9] font-bold text-sm">3</div>
+          <div class="flex-1">
+            <h2 class="font-headline text-lg font-bold text-[#E5E2E1] mb-1">Allow Push Notifications</h2>
+            <p class="text-[#BACBB9] text-sm">When the app asks, tap <strong class="text-[#E5E2E1]">Allow</strong> to enable push notifications. The scanner runs every <strong class="text-[#E5E2E1]">30 minutes during market hours</strong> and pushes high-probability plays straight to your phone.</p>
           </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <a href="/" class="block w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors text-sm">
-      Back to Home
-    </a>
+  <!-- What's New in v2.1.0 -->
+  <section class="py-16 px-6 bg-[#0E0E0E]">
+    <div class="max-w-2xl mx-auto">
+      <div class="mb-10">
+        <p class="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Release Notes</p>
+        <h2 class="font-headline text-3xl font-extrabold tracking-tighter text-[#E5E2E1]">What's New in v2.1.0</h2>
+        <p class="text-[#BACBB9] text-sm mt-2">Everything included in your download, fresh out of the gate.</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">🦅</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">Iron Condors</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Full iron condor strategy scanning — sell both a call spread and put spread on the same underlying in a single signal.</p>
+        </div>
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">📊</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">CSV Export</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Export your full trade history to CSV with one tap — import straight into Excel or your broker's analysis tools.</p>
+        </div>
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">📈</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">P&L Payoff Chart</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Interactive profit/loss chart at expiration so you can visualize the full risk profile before entering a trade.</p>
+        </div>
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">🎯</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">Custom Alert Target</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Set a custom profit target percentage per trade. Fortress notifies you when a position hits your personal goal.</p>
+        </div>
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">📅</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">Earnings Filter</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Automatically exclude — or specifically target — stocks with earnings announcements inside the option's expiration window.</p>
+        </div>
+
+        <div class="rounded-xl border border-[#3B4A3D]/40 bg-[#1C1B1B] px-6 py-5">
+          <div class="text-2xl mb-3">🏠</div>
+          <h3 class="font-headline font-bold text-[#E5E2E1] mb-1">Home Screen Widget</h3>
+          <p class="text-[#BACBB9] text-xs leading-relaxed">Add the Fortress widget to your home screen for a live at-a-glance view of your open positions and daily P&L.</p>
+        </div>
+
+      </div>
+
+      <div class="mt-8 text-center">
+        <a href="changelog.html" class="text-sm text-primary hover:underline">View full changelog →</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="w-full border-t border-[#3B4A3D]/15 bg-[#0E0E0E] py-12">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-start justify-between gap-10">
+  <div class="max-w-xs">
+    <div class="text-lg font-bold text-[#E5E2E1] mb-3">Fortress Options</div>
+    <p class="text-[11px] leading-relaxed text-[#BACBB9]">
+      High-probability options plays, scored and filtered for retail traders. Not financial advice.
+    </p>
+    <p class="text-[11px] text-[#BACBB9] mt-4">© 2026 Fortress Options. All rights reserved.</p>
   </div>
+  <div class="flex flex-col sm:flex-row gap-12">
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Product</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="strategies.html">Strategies</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/#pricing">Pricing</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="/fortress-v2.1.0.apk">Download App</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="changelog.html">What's New</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Support</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="mailto:support@fortress-options.com">support@fortress-options.com</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="support.html">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-headline text-xs uppercase tracking-widest mb-4 text-[#E5E2E1]">Legal</h4>
+      <ul class="space-y-3">
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="terms.html">Terms of Service</a></li>
+        <li><a class="text-xs text-[#BACBB9] hover:text-[#75FF9E] transition-colors" href="privacy.html">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+  const LIGHT_CSS = `
+    body { background-color: #f4f7f4 !important; color: #1a2e1c !important; }
+    header { background-color: rgba(255,255,255,0.96) !important; border-bottom: 1px solid #ddeadf !important; }
+    header a, header span.font-headline { color: #1a2e1c !important; }
+    .bg-background, .bg-surface-dim, section { background-color: #f4f7f4 !important; }
+    .bg-surface-container { background-color: #ffffff !important; }
+    .text-on-surface { color: #1a2e1c !important; }
+    .text-on-surface-variant { color: #4a6b50 !important; }
+    .text-primary { color: #006d35 !important; }
+    .bg-gradient-to-r { background: linear-gradient(to right, #006d35, #009648) !important; }
+    footer { background-color: #1a2e1c !important; }
+    footer * { color: #b8d4bc !important; }
+  `;
+  let _lightStyleEl = null;
+  function applyTheme(isDark) {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      document.getElementById('theme-icon-sun').style.display = '';
+      document.getElementById('theme-icon-moon').style.display = 'none';
+      if (_lightStyleEl) _lightStyleEl.textContent = '';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.getElementById('theme-icon-sun').style.display = 'none';
+      document.getElementById('theme-icon-moon').style.display = '';
+      if (!_lightStyleEl) { _lightStyleEl = document.createElement('style'); document.head.appendChild(_lightStyleEl); }
+      _lightStyleEl.textContent = LIGHT_CSS;
+    }
+  }
+  function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('fortress-theme', isDark ? 'light' : 'dark');
+    applyTheme(!isDark);
+  }
+  applyTheme(localStorage.getItem('fortress-theme') !== 'light');
+</script>
 </body>
 </html>
