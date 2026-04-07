@@ -2,18 +2,109 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-# Use DB_PATH env var if set (cloud volume mount), otherwise local file
+# PostgreSQL support: set DATABASE_URL env var to use Postgres, otherwise falls back to SQLite
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "fortress.db"))
+
+_USE_POSTGRES = bool(DATABASE_URL)
+
+if _USE_POSTGRES:
+    try:
+        import psycopg2
+        import psycopg2.extras
+        print(f"[DB] Using PostgreSQL: {DATABASE_URL[:30]}...")
+    except ImportError:
+        print("[DB] psycopg2 not installed — falling back to SQLite")
+        _USE_POSTGRES = False
+
+
+class _PgRow(dict):
+    """Dict subclass that mimics sqlite3.Row's [] access by column name."""
+    def __getitem__(self, key):
+        return super().__getitem__(key)
+    def keys(self):
+        return super().keys()
 
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if _USE_POSTGRES:
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn.autocommit = False
+        try:
+            yield _PgWrapper(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    else:
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+
+class _PgWrapper:
+    """Thin wrapper around psycopg2 connection to match sqlite3 interface used in the codebase."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        # Translate SQLite ? placeholders → Postgres %s
+        pg_sql = sql.replace("?", "%s")
+        # Translate SQLite datetime('now') → NOW()
+        pg_sql = pg_sql.replace("datetime('now')", "NOW()")
+        # Translate SQLite date('now') → CURRENT_DATE
+        pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
+        cur = self._conn.cursor()
+        cur.execute(pg_sql, params)
+        return _PgCursor(cur)
+
+    def executescript(self, sql):
+        # executescript runs DDL; translate and run each statement
+        pg_sql = sql.replace("?", "%s")
+        pg_sql = pg_sql.replace("datetime('now')", "NOW()")
+        pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
+        pg_sql = pg_sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        # Postgres doesn't support IF NOT EXISTS for columns — migrations handle it separately
+        cur = self._conn.cursor()
+        for stmt in pg_sql.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                try:
+                    cur.execute(stmt)
+                except Exception as e:
+                    if "already exists" not in str(e).lower():
+                        raise
+
+    def commit(self):
+        self._conn.commit()
+
+
+class _PgCursor:
+    """Wraps psycopg2 RealDictCursor to mimic sqlite3.Cursor."""
+    def __init__(self, cur):
+        self._cur = cur
+
+    def fetchone(self):
+        row = self._cur.fetchone()
+        return dict(row) if row else None
+
+    def fetchall(self):
+        rows = self._cur.fetchall()
+        return [dict(r) for r in rows]
+
+    def __getitem__(self, key):
+        return self._cur[key]
+
+    @property
+    def lastrowid(self):
+        # psycopg2 doesn't expose lastrowid — use RETURNING id if needed
+        return None
 
 
 def init_db():

@@ -278,6 +278,31 @@ def scan_and_save(force: bool = False):
                     print(f"  {symbol}: no exp in {MIN_DTE}-{MAX_DTE}d window (nearest={nearest})")
                     continue
 
+                # ── Earnings check — skip if earnings land within the DTE window ──
+                has_earnings = False
+                try:
+                    earn_df = ticker.get_earnings_dates(limit=4)
+                    if earn_df is not None and not earn_df.empty:
+                        today_date = today.date()
+                        for idx in earn_df.index:
+                            edate = idx.date() if hasattr(idx, "date") else idx
+                            days_to_earn = (edate - today_date).days
+                            if 0 <= days_to_earn <= MAX_DTE:
+                                print(f"  {symbol}: earnings in {days_to_earn}d — skipping scan")
+                                has_earnings = True
+                                break
+                except Exception:
+                    pass
+                if has_earnings:
+                    time.sleep(0.5)
+                    continue
+
+                # Track found leg data for iron condor detection
+                _put_play: dict | None = None
+                _put_exp: str | None = None
+                _call_play: dict | None = None
+                _call_exp: str | None = None
+
                 # ── Bull Put Spread scan ──────────────────────────────────────
                 found_put = False
                 for target_date, dte in valid_exps:
@@ -354,6 +379,9 @@ def scan_and_save(force: bool = False):
                                 conn.commit()
                             print(f"  Bull Put: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
                                   f"exp={target_date} | Score {score}/10 | Credit ${net_credit:.2f}")
+                            # Store for iron condor detection
+                            _put_play = {**play, "score": score, "breakdown": breakdown}
+                            _put_exp = target_date
                             found_put = True
                             break
 
@@ -430,8 +458,64 @@ def scan_and_save(force: bool = False):
                                 conn.commit()
                             print(f"  Bear Call: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
                                   f"exp={target_date} | Score {score}/10 | Credit ${net_credit:.2f}")
+                            # Store for iron condor detection
+                            _call_play = {**play, "score": score, "breakdown": breakdown}
+                            _call_exp = target_date
                             found_call = True
                             break
+
+                # ── Iron Condor: both legs found on same expiration ───────────
+                if _put_play and _call_play and _put_exp == _call_exp:
+                    combined_credit = round(_put_play["net_credit"] + _call_play["net_credit"], 2)
+                    combined_risk = round((SPREAD_WIDTH * 2 * 100) - (combined_credit * 100), 2)
+                    ic_buffer = _put_play["buffer_pct"]  # downside buffer (put side)
+                    ic_breakdown = {
+                        **_put_play["breakdown"],
+                        "put_long": _put_play["long_strike"],
+                        "call_short": _call_play["short_strike"],
+                        "call_long": _call_play["long_strike"],
+                        "put_credit": round(_put_play["net_credit"], 2),
+                        "call_credit": round(_call_play["net_credit"], 2),
+                    }
+                    ic_play = {
+                        "symbol": symbol,
+                        "short_strike": _put_play["short_strike"],   # put short (lower boundary)
+                        "long_strike": _call_play["short_strike"],   # call short (upper boundary)
+                        "expiration": _put_exp,
+                        "dte": _put_play["dte"],
+                        "current_price": current_price,
+                        "net_credit": combined_credit,
+                        "max_risk": combined_risk,
+                        "spread_width": SPREAD_WIDTH,
+                        "buffer_pct": ic_buffer,
+                        "volume": _put_play.get("volume", 0),
+                        "open_interest": _put_play.get("open_interest", 0),
+                        "iv": _put_play.get("iv", 0),
+                    }
+                    ic_score, _ = score_play(ic_play)
+                    ic_analysis = generate_play_analysis(ic_play)
+                    with get_db() as conn:
+                        conn.execute(
+                            """INSERT INTO plays
+                            (symbol, play_type, short_strike, long_strike, expiration, dte,
+                             current_price, net_credit, max_risk, spread_width, buffer_pct,
+                             score, score_breakdown, volume, open_interest, iv, is_active, ai_analysis)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+                            (
+                                symbol, "iron_condor",
+                                _put_play["short_strike"], _call_play["short_strike"],
+                                _put_exp, _put_play["dte"],
+                                round(current_price, 2), combined_credit, combined_risk,
+                                SPREAD_WIDTH, round(ic_buffer, 2), ic_score,
+                                json.dumps(ic_breakdown),
+                                _put_play.get("volume", 0), _put_play.get("open_interest", 0),
+                                round(_put_play.get("iv", 0), 4), ic_analysis,
+                            ),
+                        )
+                        conn.commit()
+                    print(f"  Iron Condor: {symbol} "
+                          f"${_put_play['short_strike']:.0f}/{_call_play['short_strike']:.0f} "
+                          f"exp={_put_exp} | Score {ic_score}/10 | Credit ${combined_credit:.2f}")
 
                 time.sleep(1)  # yfinance rate limit buffer
 
@@ -499,7 +583,7 @@ def update_positions():
 
                     # Threshold alerts
                     prev_pnl = pos.get("pnl_pct") or 0
-                    if pnl_pct >= 20 and prev_pnl < 20:
+                    if pnl_pct >= 50 and prev_pnl < 50:  # 50% of max profit = standard close target
                         alert_msg = f"{pos['symbol']} ${pos['short_strike']:.0f}/{pos['long_strike']:.0f} hit {pnl_pct:.0f}% profit"
                         with get_db() as conn:
                             conn.execute(

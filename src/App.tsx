@@ -252,6 +252,8 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
   const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
   const isHotCard = play.score >= 8;
   const isBearCall = play.play_type === 'bear_call';
+  const isIronCondor = play.play_type === 'iron_condor';
+  const bd = play.score_breakdown ? JSON.parse(play.score_breakdown) : {};
 
   return (
     <motion.div
@@ -277,6 +279,9 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
             )}
             {isBearCall && (
               <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full font-medium">Bear Call</span>
+            )}
+            {isIronCondor && (
+              <span className="text-[10px] text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full font-medium">Iron Condor</span>
             )}
             {play.play_type === 'earnings' && (
               <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>
@@ -305,18 +310,37 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
       </div>
 
       <div className="bg-zinc-900/60 rounded-xl p-3 mb-3 space-y-1.5">
-        <div className="flex justify-between text-sm">
-          <span className="text-zinc-400">Sell (short {isBearCall ? 'call' : 'put'})</span>
-          <span className={`font-mono font-semibold ${isBearCall ? 'text-red-400' : 'text-emerald-400'}`}>
-            ${play.short_strike} {isBearCall ? 'Call' : 'Put'}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-zinc-400">Buy (long {isBearCall ? 'call' : 'put'})</span>
-          <span className={`font-mono font-semibold ${isBearCall ? 'text-orange-400' : 'text-red-400'}`}>
-            ${play.long_strike} {isBearCall ? 'Call' : 'Put'}
-          </span>
-        </div>
+        {isIronCondor ? (
+          <>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell put / buy put</span>
+              <span className="font-mono font-semibold text-emerald-400">${play.short_strike} / ${bd.put_long ?? (play.short_strike - 5)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell call / buy call</span>
+              <span className="font-mono font-semibold text-sky-400">${bd.call_short ?? play.long_strike} / ${bd.call_long ?? (play.long_strike + 5)}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-500 pt-0.5 border-t border-zinc-700/40">
+              <span>Profit zone</span>
+              <span className="text-purple-300">${play.short_strike} – ${play.long_strike}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell (short {isBearCall ? 'call' : 'put'})</span>
+              <span className={`font-mono font-semibold ${isBearCall ? 'text-red-400' : 'text-emerald-400'}`}>
+                ${play.short_strike} {isBearCall ? 'Call' : 'Put'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Buy (long {isBearCall ? 'call' : 'put'})</span>
+              <span className={`font-mono font-semibold ${isBearCall ? 'text-orange-400' : 'text-red-400'}`}>
+                ${play.long_strike} {isBearCall ? 'Call' : 'Put'}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-x-2 gap-y-2 mb-4">
@@ -359,6 +383,8 @@ function PositionCard({
   onClose: (p: Position) => void;
 }) {
   const pnl = pos.pnl_pct ?? 0;
+  const profitTarget = Number(localStorage.getItem('fortress_profit_target') || '50');
+  const hitTarget = pnl >= profitTarget;
   const pnlColor =
     pnl >= 30 ? 'text-emerald-300'
     : pnl >= 10 ? 'text-green-400'
@@ -382,9 +408,16 @@ function PositionCard({
     >
       <div className="flex items-start justify-between mb-2">
         <div>
-          <span className="text-xl font-bold text-white">{pos.symbol}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-bold text-white">{pos.symbol}</span>
+            {hitTarget && (
+              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-full animate-pulse">
+                🎯 Target!
+              </span>
+            )}
+          </div>
           <p className="text-sm text-zinc-400">
-            ${pos.short_strike}/{pos.long_strike} Put Spread
+            ${pos.short_strike}/{pos.long_strike} {pos.play_type === 'bear_call' ? 'Call' : pos.play_type === 'iron_condor' ? 'Iron Condor' : 'Put'} Spread
           </p>
           <p className="text-xs text-zinc-500 mt-0.5">
             {pos.expiration} · {dteLeft}d left · {pos.contracts}x
@@ -610,6 +643,99 @@ function TrackModal({
   );
 }
 
+// ─── P&L Payoff Chart ────────────────────────────────────────────────────────
+
+function PayoffChart({ play }: { play: Play }) {
+  const W = 280, H = 80;
+  const price = play.current_price;
+  const credit = play.net_credit;
+  const sw = SPREAD_WIDTH_CONST; // always 5
+  const maxProfit = credit * 100;
+  const maxLoss = (sw - credit) * 100;
+
+  // For bull_put: profit above short_strike, loss below long_strike
+  // For bear_call: profit below short_strike, loss above long_strike
+  // For iron_condor: profit between short_strike and long_strike
+  const isBear = play.play_type === 'bear_call';
+  const isCondor = play.play_type === 'iron_condor';
+
+  // Price range to display: 15% below and above current price
+  const range = price * 0.18;
+  const priceMin = price - range;
+  const priceMax = price + range;
+
+  // Map price → x pixel
+  const px = (p: number) => ((p - priceMin) / (priceMax - priceMin)) * W;
+
+  // Generate pnl curve points
+  const points: [number, number][] = [];
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const p = priceMin + (i / steps) * (priceMax - priceMin);
+    let pnl = 0;
+    if (isCondor) {
+      const bd = play.score_breakdown ? JSON.parse(play.score_breakdown) : {};
+      const putLong = bd.put_long ?? (play.short_strike - sw);
+      const callLong = bd.call_long ?? (play.long_strike + sw);
+      const putShort = play.short_strike;
+      const callShort = play.long_strike;
+      if (p >= putShort && p <= callShort) pnl = maxProfit;
+      else if (p < putShort && p > putLong) pnl = ((p - putLong) / sw) * maxProfit - maxProfit + maxProfit;
+      else if (p > callShort && p < callLong) pnl = ((callLong - p) / sw) * maxProfit - maxProfit + maxProfit;
+      else pnl = -maxLoss;
+    } else if (isBear) {
+      const callShort = play.short_strike;
+      const callLong = play.long_strike;
+      if (p <= callShort) pnl = maxProfit;
+      else if (p >= callLong) pnl = -maxLoss;
+      else pnl = maxProfit - ((p - callShort) / sw) * (maxProfit + maxLoss);
+    } else {
+      const putShort = play.short_strike;
+      const putLong = play.long_strike;
+      if (p >= putShort) pnl = maxProfit;
+      else if (p <= putLong) pnl = -maxLoss;
+      else pnl = -maxLoss + ((p - putLong) / sw) * (maxProfit + maxLoss);
+    }
+    points.push([px(p), pnl]);
+  }
+
+  // Map pnl → y pixel (profit at top, loss at bottom)
+  const totalRange = maxProfit + maxLoss;
+  const py = (pnl: number) => H - ((pnl + maxLoss) / totalRange) * H;
+  const zeroY = py(0);
+
+  // Build SVG polyline
+  const polyline = points.map(([x, pnl]) => `${x.toFixed(1)},${py(pnl).toFixed(1)}`).join(' ');
+
+  // Split into profit (green) and loss (red) segments
+  const profitPts = points.filter(([, pnl]) => pnl >= 0).map(([x, pnl]) => `${x.toFixed(1)},${py(pnl).toFixed(1)}`).join(' ');
+
+  return (
+    <div className="bg-zinc-900/60 rounded-xl p-3 mb-4">
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-2">P&amp;L at Expiration</p>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+        {/* Zero line */}
+        <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="#3f3f46" strokeWidth="1" strokeDasharray="3,3" />
+        {/* Loss fill */}
+        <polyline points={polyline} fill="none" stroke="#ef4444" strokeWidth="2" opacity="0.7" />
+        {/* Profit fill */}
+        <polyline points={polyline} fill="none" stroke="#10b981" strokeWidth="2" opacity="0.9"
+          strokeDasharray="none"
+          style={{ clipPath: `inset(0 0 ${H - zeroY}px 0)` }}
+        />
+        {/* Current price line */}
+        <line x1={px(price)} y1="0" x2={px(price)} y2={H} stroke="#a1a1aa" strokeWidth="1" strokeDasharray="4,2" />
+        <text x={px(price) + 3} y="10" fill="#a1a1aa" fontSize="8">Now</text>
+        {/* Labels */}
+        <text x="2" y="10" fill="#10b981" fontSize="8">+${maxProfit.toFixed(0)}</text>
+        <text x="2" y={H - 2} fill="#ef4444" fontSize="8">-${maxLoss.toFixed(0)}</text>
+      </svg>
+    </div>
+  );
+}
+
+const SPREAD_WIDTH_CONST = 5;
+
 // ─── Recommend Modal ──────────────────────────────────────────────────────────
 
 // ─── Play Reasoning Modal ─────────────────────────────────────────────────────
@@ -704,11 +830,18 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
             <div className="flex items-center gap-2">
               <h3 className="text-xl font-bold text-white">{play.symbol}</h3>
               <ScoreBadge score={play.score} />
+              {play.play_type === 'iron_condor' && (
+                <span className="text-[10px] text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full font-medium">Iron Condor</span>
+              )}
               {play.play_type === 'earnings' && (
                 <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>
               )}
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5">${play.short_strike}/${play.long_strike} {isBearCall ? 'Call Spread' : 'Put Spread'} · ${play.net_credit.toFixed(2)} credit</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {play.play_type === 'iron_condor'
+                ? `$${play.short_strike}/$${play.long_strike} Iron Condor · $${play.net_credit.toFixed(2)} combined credit`
+                : `$${play.short_strike}/$${play.long_strike} ${isBearCall ? 'Call Spread' : 'Put Spread'} · $${play.net_credit.toFixed(2)} credit`}
+            </p>
           </div>
           <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
             <X className="w-4 h-4 text-zinc-400" />
@@ -772,6 +905,9 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
             </div>
           ))}
         </div>
+
+        {/* P&L Payoff Chart */}
+        <PayoffChart play={play} />
 
         {/* CTA */}
         <button
@@ -1198,6 +1334,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [wlInput, setWlInput] = useState('');
   const [wlLoading, setWlLoading] = useState(false);
+  const [profitTarget, setProfitTarget] = useState<number>(
+    Number(localStorage.getItem('fortress_profit_target') || '50')
+  );
 
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
@@ -1448,6 +1587,31 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
             >
               Update PIN
             </button>
+
+            {/* Alert Threshold */}
+            <div className="mt-6 bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Profit Target</p>
+                  <p className="text-xs text-zinc-500">Alert me when position reaches this % profit</p>
+                </div>
+                <span className="text-lg font-bold text-emerald-400">{profitTarget}%</span>
+              </div>
+              <input
+                type="range"
+                min={20} max={90} step={5}
+                value={profitTarget}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setProfitTarget(v);
+                  localStorage.setItem('fortress_profit_target', String(v));
+                }}
+                className="w-full accent-emerald-500"
+              />
+              <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+                <span>20%</span><span>50% (standard)</span><span>90%</span>
+              </div>
+            </div>
           </>
         )}
 
@@ -1500,7 +1664,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v2.0.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v2.1.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1892,6 +2056,32 @@ function PositionsScreen({
   );
 }
 
+function exportHistoryCSV(history: Position[]) {
+  const headers = ['Symbol','Type','Short Strike','Long Strike','Expiration','Entry Credit','Exit Credit','Contracts','P&L %','Status','Exit Reason','Closed At'];
+  const rows = history.map(p => [
+    p.symbol,
+    p.play_type || 'bull_put',
+    p.short_strike,
+    p.long_strike,
+    p.expiration,
+    p.entry_credit?.toFixed(2) ?? '',
+    p.exit_credit?.toFixed(2) ?? '',
+    p.contracts ?? 1,
+    p.pnl_pct?.toFixed(1) ?? '',
+    p.status,
+    p.exit_reason ?? '',
+    p.closed_at?.slice(0, 10) ?? '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fortress-trades-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function HistoryScreen({ history, loading }: { history: Position[]; loading: boolean }) {
   // Win = closed with >= 30% of max profit captured (matches server definition)
   const wins = history.filter(p => (p.pnl_pct ?? 0) >= 30).length;
@@ -1912,8 +2102,20 @@ function HistoryScreen({ history, loading }: { history: Position[]; loading: boo
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
-        <h2 className="text-sm font-bold text-white">Trade History</h2>
-        <p className="text-xs text-zinc-500">{serverStats ? serverStats.total_trades : history.length} closed trades</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-bold text-white">Trade History</h2>
+            <p className="text-xs text-zinc-500">{serverStats ? serverStats.total_trades : history.length} closed trades</p>
+          </div>
+          {history.length > 0 && (
+            <button
+              onClick={() => exportHistoryCSV(history)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-3 py-1.5 rounded-full active:opacity-70 transition-opacity"
+            >
+              ⬇ Export CSV
+            </button>
+          )}
+        </div>
         {(history.length > 0 || serverStats) && (
           <div className="grid grid-cols-2 gap-2 mt-3">
             <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
@@ -2439,7 +2641,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '2.0.0';
+  const CURRENT_VERSION = '2.1.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 

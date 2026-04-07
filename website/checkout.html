@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Subscribe — Fortress Options</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>body { font-family: 'Inter', sans-serif; background: #0A0A0B; color: #e4e4e7; }</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4">
+    <a href="/" class="flex items-center gap-2 w-fit">
+      <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-black font-bold text-sm">🏰</div>
+      <span class="font-bold text-white">Fortress Options</span>
+    </a>
+  </header>
+
+  <main class="flex-1 flex flex-col items-center justify-center px-4 py-12">
+    <!-- Step indicator -->
+    <div class="flex items-center gap-3 mb-10 text-sm">
+      <span class="flex items-center gap-1.5 text-emerald-400 font-semibold">
+        <span class="w-6 h-6 bg-emerald-500 text-black rounded-full flex items-center justify-center text-xs font-bold">1</span>
+        Choose Plan
+      </span>
+      <div class="w-12 h-px bg-zinc-700"></div>
+      <span class="flex items-center gap-1.5 text-zinc-500">
+        <span class="w-6 h-6 border border-zinc-700 rounded-full flex items-center justify-center text-xs">2</span>
+        Payment
+      </span>
+      <div class="w-12 h-px bg-zinc-700"></div>
+      <span class="flex items-center gap-1.5 text-zinc-500">
+        <span class="w-6 h-6 border border-zinc-700 rounded-full flex items-center justify-center text-xs">3</span>
+        Get Key
+      </span>
+    </div>
+
+    <h1 class="text-3xl font-bold text-white text-center mb-2">Start Your Free Trial</h1>
+    <p class="text-zinc-400 text-center mb-8">3 days free · Cancel any time · API key delivered instantly</p>
+
+    <!-- Billing toggle -->
+    <div class="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 mb-8">
+      <button onclick="setBilling('monthly')" id="btn-monthly"
+        class="px-5 py-2 rounded-lg text-sm font-semibold transition-colors bg-zinc-700 text-white">
+        Monthly
+      </button>
+      <button onclick="setBilling('annual')" id="btn-annual"
+        class="px-5 py-2 rounded-lg text-sm font-semibold transition-colors text-zinc-400">
+        Annual <span class="text-emerald-400 text-xs ml-1">2 months free</span>
+      </button>
+    </div>
+
+    <!-- Plans -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl mb-8">
+
+      <!-- Basic -->
+      <div id="plan-basic" onclick="selectPlan('basic')"
+        class="plan-card border border-zinc-800 rounded-2xl p-5 cursor-pointer transition-all hover:border-zinc-600">
+        <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Basic</p>
+        <p id="price-basic" class="text-3xl font-bold text-white mb-0.5">$29<span class="text-sm font-normal text-zinc-400">/mo</span></p>
+        <p class="text-xs text-zinc-500 mb-4">SPY &amp; QQQ only</p>
+        <ul class="space-y-2 text-sm text-zinc-300">
+          <li>✓ Bull Put &amp; Bear Call plays</li>
+          <li>✓ Iron Condor alerts</li>
+          <li>✓ Push notifications</li>
+          <li class="text-zinc-600">✗ Full watchlist (8 tickers)</li>
+          <li class="text-zinc-600">✗ Telegram bot</li>
+        </ul>
+      </div>
+
+      <!-- Pro (highlighted) -->
+      <div id="plan-pro" onclick="selectPlan('pro')"
+        class="plan-card border-2 border-emerald-500 rounded-2xl p-5 cursor-pointer transition-all relative">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-black text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
+        <p class="text-xs text-emerald-400 uppercase tracking-widest mb-2">Pro</p>
+        <p id="price-pro" class="text-3xl font-bold text-white mb-0.5">$59<span class="text-sm font-normal text-zinc-400">/mo</span></p>
+        <p class="text-xs text-zinc-500 mb-4">Full watchlist · 6 tickers</p>
+        <ul class="space-y-2 text-sm text-zinc-300">
+          <li>✓ Everything in Basic</li>
+          <li>✓ AAPL, AMZN, MSFT, GOOGL</li>
+          <li>✓ P&amp;L payoff charts</li>
+          <li>✓ AI trade analysis</li>
+          <li class="text-zinc-600">✗ Telegram bot</li>
+        </ul>
+      </div>
+
+      <!-- Elite -->
+      <div id="plan-elite" onclick="selectPlan('elite')"
+        class="plan-card border border-zinc-800 rounded-2xl p-5 cursor-pointer transition-all hover:border-zinc-600">
+        <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Elite</p>
+        <p id="price-elite" class="text-3xl font-bold text-white mb-0.5">$99<span class="text-sm font-normal text-zinc-400">/mo</span></p>
+        <p class="text-xs text-zinc-500 mb-4">Everything · Telegram alerts</p>
+        <ul class="space-y-2 text-sm text-zinc-300">
+          <li>✓ Everything in Pro</li>
+          <li>✓ TSLA + NVDA plays</li>
+          <li>✓ Telegram instant alerts</li>
+          <li>✓ Custom alert thresholds</li>
+          <li>✓ Priority support</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Email input -->
+    <div class="w-full max-w-md mb-4">
+      <label class="block text-sm text-zinc-400 mb-1.5">Email address</label>
+      <input id="email-input" type="email" placeholder="you@example.com"
+        class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 text-sm"/>
+    </div>
+
+    <!-- CTA -->
+    <button onclick="startCheckout()" id="cta-btn"
+      class="w-full max-w-md py-4 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold rounded-xl text-base transition-colors shadow-[0_0_24px_rgba(16,185,129,0.3)]">
+      Start Free Trial →
+    </button>
+    <p class="text-xs text-zinc-600 mt-3 text-center">3-day free trial · No charge until day 4 · Cancel anytime</p>
+
+    <!-- Error -->
+    <p id="error-msg" class="text-red-400 text-sm mt-3 text-center hidden"></p>
+  </main>
+
+  <script>
+    const API = 'https://api.fortress-options.com';
+    let selectedPlan = 'pro';
+    let billing = 'monthly';
+
+    const PRICES = {
+      monthly: { basic: '$29', pro: '$59', elite: '$99' },
+      annual:  { basic: '$290', pro: '$590', elite: '$990' },
+    };
+    const PRICE_SUFFIX = { monthly: '/mo', annual: '/yr' };
+
+    function setBilling(b) {
+      billing = b;
+      document.getElementById('btn-monthly').className = b === 'monthly'
+        ? 'px-5 py-2 rounded-lg text-sm font-semibold transition-colors bg-zinc-700 text-white'
+        : 'px-5 py-2 rounded-lg text-sm font-semibold transition-colors text-zinc-400';
+      document.getElementById('btn-annual').className = b === 'annual'
+        ? 'px-5 py-2 rounded-lg text-sm font-semibold transition-colors bg-zinc-700 text-white'
+        : 'px-5 py-2 rounded-lg text-sm font-semibold transition-colors text-zinc-400';
+      ['basic','pro','elite'].forEach(p => {
+        document.getElementById('price-' + p).innerHTML =
+          PRICES[b][p] + '<span class="text-sm font-normal text-zinc-400">' + PRICE_SUFFIX[b] + '</span>';
+      });
+    }
+
+    function selectPlan(plan) {
+      selectedPlan = plan;
+      ['basic','pro','elite'].forEach(p => {
+        const card = document.getElementById('plan-' + p);
+        if (p === plan) {
+          card.classList.add('border-emerald-500');
+          card.classList.remove('border-zinc-800');
+          if (p !== 'pro') card.classList.add('border-2');
+        } else {
+          card.classList.remove('border-emerald-500', 'border-2');
+          card.classList.add('border-zinc-800');
+        }
+      });
+    }
+    selectPlan('pro');
+
+    async function startCheckout() {
+      const email = document.getElementById('email-input').value.trim();
+      const errEl = document.getElementById('error-msg');
+      errEl.classList.add('hidden');
+
+      if (!email || !email.includes('@')) {
+        errEl.textContent = 'Please enter a valid email address.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const btn = document.getElementById('cta-btn');
+      btn.textContent = 'Loading...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(API + '/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            tier: selectedPlan,
+            billing,
+            success_url: window.location.origin + '/success.html',
+            cancel_url: window.location.origin + '/checkout.html',
+          }),
+        });
+        const data = await res.json();
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          throw new Error(data.detail || 'Checkout failed');
+        }
+      } catch (e) {
+        errEl.textContent = e.message || 'Something went wrong. Please try again.';
+        errEl.classList.remove('hidden');
+        btn.textContent = 'Start Free Trial →';
+        btn.disabled = false;
+      }
+    }
+
+    // Pre-select plan from URL param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('plan')) selectPlan(params.get('plan'));
+    if (params.get('billing')) setBilling(params.get('billing'));
+  </script>
+</body>
+</html>

@@ -33,6 +33,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Fortress Options home screen widget -->
+        <receiver
+            android:name=".FortressWidget"
+            android:exported="true"
+            android:label="Fortress Options">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/fortress_widget_info" />
+        </receiver>
+
     </application>
 
     <!-- Permissions -->
