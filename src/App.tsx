@@ -158,6 +158,9 @@ function isMarketJustOpened(): boolean {
   return h >= 9.5 && h < 10.0;
 }
 
+// ─── App version ─────────────────────────────────────────────────────────────
+const CURRENT_VERSION = '2.2.1';
+
 // ─── Theme ───────────────────────────────────────────────────────────────────
 const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: true, toggle: () => {} });
 const useTheme = () => useContext(ThemeContext);
@@ -2675,7 +2678,6 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '2.2.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
