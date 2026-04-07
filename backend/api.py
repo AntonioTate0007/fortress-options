@@ -68,8 +68,20 @@ from telegram_bot import start_polling_thread, send_elite_alert
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-WATCHLIST = ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL", "TSLA", "NVDA"]
+DEFAULT_WATCHLIST = ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL", "TSLA", "NVDA"]
+WATCHLIST = DEFAULT_WATCHLIST  # kept for backwards compat; scanner uses get_watchlist()
 SPREAD_WIDTH = 5.0
+
+
+def get_watchlist() -> list[str]:
+    """Return the current watchlist from DB; fall back to DEFAULT_WATCHLIST if empty."""
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT symbol FROM watchlist ORDER BY symbol").fetchall()
+        symbols = [r["symbol"] for r in rows]
+        return symbols if symbols else DEFAULT_WATCHLIST
+    except Exception:
+        return DEFAULT_WATCHLIST
 MIN_DTE = 5
 MAX_DTE = 21
 OTM_BUFFER_MIN = 0.03
@@ -247,14 +259,14 @@ def scan_and_save(force: bool = False):
             conn.execute("UPDATE plays SET is_active = 0 WHERE is_active = 1")
             conn.commit()
 
-        for symbol in WATCHLIST:
+        for symbol in get_watchlist():
             try:
                 ticker = yf.Ticker(symbol, session=_yf_session)
                 current_price = float(ticker.fast_info["last_price"])
                 expirations = ticker.options
                 today = datetime.now()
 
-                # Collect all expirations in the DTE window (try each until a play is found)
+                # Collect all expirations in the DTE window
                 valid_exps = []
                 for exp in expirations:
                     diff = (datetime.strptime(exp, "%Y-%m-%d") - today).days
@@ -266,9 +278,10 @@ def scan_and_save(force: bool = False):
                     print(f"  {symbol}: no exp in {MIN_DTE}-{MAX_DTE}d window (nearest={nearest})")
                     continue
 
-                found = False
+                # ── Bull Put Spread scan ──────────────────────────────────────
+                found_put = False
                 for target_date, dte in valid_exps:
-                    if found:
+                    if found_put:
                         break
 
                     opt_chain = ticker.option_chain(target_date)
@@ -280,8 +293,6 @@ def scan_and_save(force: bool = False):
                     candidates = puts[(puts["strike"] >= lower) & (puts["strike"] <= upper)]
 
                     if candidates.empty:
-                        print(f"  {symbol} {target_date}: 0 OTM candidates "
-                              f"(price={current_price:.2f}, need ${lower:.0f}-${upper:.0f}, live_puts={len(puts)})")
                         continue
 
                     best_credit = 0.0
@@ -323,9 +334,7 @@ def scan_and_save(force: bool = False):
                                 "iv": iv,
                             }
                             score, breakdown = score_play(play)
-                            play["score"] = score  # needed by generate_play_analysis
-
-                            # Generate AI analysis for the play
+                            play["score"] = score
                             ai_analysis = generate_play_analysis(play)
 
                             with get_db() as conn:
@@ -336,25 +345,93 @@ def scan_and_save(force: bool = False):
                                      score, score_breakdown, volume, open_interest, iv, is_active, ai_analysis)
                                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
                                     (
-                                        symbol, "fortress", short_strike, long_strike, target_date, dte,
+                                        symbol, "bull_put", short_strike, long_strike, target_date, dte,
                                         round(current_price, 2), round(net_credit, 2), round(max_risk, 2),
                                         SPREAD_WIDTH, round(buffer_pct, 2), score, json.dumps(breakdown),
                                         volume, oi, round(iv, 4), ai_analysis,
                                     ),
                                 )
                                 conn.commit()
-                            print(f"  Found: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
+                            print(f"  Bull Put: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
                                   f"exp={target_date} | Score {score}/10 | Credit ${net_credit:.2f}")
-                            found = True
+                            found_put = True
                             break
 
-                    if not found:
-                        if not has_long:
-                            print(f"  {symbol} {target_date}: no ${SPREAD_WIDTH:.0f}-wide long put available")
-                        elif best_credit < PREMIUM_MIN:
-                            print(f"  {symbol} {target_date}: best credit ${best_credit:.2f} < min ${PREMIUM_MIN}")
-                        else:
-                            print(f"  {symbol} {target_date}: best credit ${best_credit:.2f} > max ${PREMIUM_MAX}")
+                # ── Bear Call Spread scan ─────────────────────────────────────
+                found_call = False
+                for target_date, dte in valid_exps:
+                    if found_call:
+                        break
+
+                    opt_chain = ticker.option_chain(target_date)
+                    calls = opt_chain.calls
+                    calls = calls[(calls["bid"] > 0) & (calls["ask"] > 0)]
+
+                    # Short call: 3-10% above current price (OTM)
+                    lower_c = current_price * (1 + OTM_BUFFER_MIN)
+                    upper_c = current_price * (1 + OTM_BUFFER_MAX)
+                    candidates_c = calls[(calls["strike"] >= lower_c) & (calls["strike"] <= upper_c)]
+
+                    if candidates_c.empty:
+                        continue
+
+                    for _, short_call in candidates_c.iterrows():
+                        short_strike = float(short_call["strike"])
+                        long_strike = short_strike + SPREAD_WIDTH  # long call is higher
+                        long_row = calls[calls["strike"] == long_strike]
+                        if long_row.empty:
+                            continue
+
+                        long_call = long_row.iloc[0]
+                        short_mid = (float(short_call["bid"]) + float(short_call["ask"])) / 2
+                        long_mid = (float(long_call["bid"]) + float(long_call["ask"])) / 2
+                        net_credit = short_mid - long_mid
+
+                        if PREMIUM_MIN <= net_credit <= PREMIUM_MAX:
+                            buffer_pct = ((short_strike - current_price) / current_price) * 100
+                            max_risk = (SPREAD_WIDTH * 100) - (net_credit * 100)
+                            iv = float(short_call.get("impliedVolatility") or 0)
+                            volume = int(short_call.get("volume") or 0)
+                            oi = int(short_call.get("openInterest") or 0)
+
+                            play = {
+                                "symbol": symbol,
+                                "short_strike": short_strike,
+                                "long_strike": long_strike,
+                                "expiration": target_date,
+                                "dte": dte,
+                                "current_price": current_price,
+                                "net_credit": net_credit,
+                                "max_risk": max_risk,
+                                "spread_width": SPREAD_WIDTH,
+                                "buffer_pct": buffer_pct,
+                                "volume": volume,
+                                "open_interest": oi,
+                                "iv": iv,
+                            }
+                            score, breakdown = score_play(play)
+                            play["score"] = score
+                            ai_analysis = generate_play_analysis(play)
+
+                            with get_db() as conn:
+                                conn.execute(
+                                    """INSERT INTO plays
+                                    (symbol, play_type, short_strike, long_strike, expiration, dte,
+                                     current_price, net_credit, max_risk, spread_width, buffer_pct,
+                                     score, score_breakdown, volume, open_interest, iv, is_active, ai_analysis)
+                                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+                                    (
+                                        symbol, "bear_call", short_strike, long_strike, target_date, dte,
+                                        round(current_price, 2), round(net_credit, 2), round(max_risk, 2),
+                                        SPREAD_WIDTH, round(buffer_pct, 2), score, json.dumps(breakdown),
+                                        volume, oi, round(iv, 4), ai_analysis,
+                                    ),
+                                )
+                                conn.commit()
+                            print(f"  Bear Call: {symbol} ${short_strike:.0f}/{long_strike:.0f} "
+                                  f"exp={target_date} | Score {score}/10 | Credit ${net_credit:.2f}")
+                            found_call = True
+                            break
 
                 time.sleep(1)  # yfinance rate limit buffer
 
@@ -928,6 +1005,72 @@ def trigger_scan():
     t = threading.Thread(target=lambda: scan_and_save(force=True), daemon=True)
     t.start()
     return {"message": "Scan started"}
+
+
+# ─── Watchlist endpoints ──────────────────────────────────────────────────────
+
+@app.get("/api/watchlist")
+def api_get_watchlist(sub: dict = Depends(require_api_key)):
+    symbols = get_watchlist()
+    return {"symbols": symbols, "is_custom": bool(
+        next(iter([1]), None) and
+        len(symbols) != len(DEFAULT_WATCHLIST)
+    )}
+
+
+class WatchlistItem(BaseModel):
+    symbol: str
+
+
+@app.post("/api/watchlist/add")
+def api_watchlist_add(item: WatchlistItem, sub: dict = Depends(require_api_key)):
+    sym = item.symbol.upper().strip()
+    if not sym or len(sym) > 10:
+        raise HTTPException(400, "Invalid symbol")
+    # Seed DB with defaults if empty before adding
+    with get_db() as conn:
+        existing = conn.execute("SELECT symbol FROM watchlist").fetchall()
+        if not existing:
+            for s in DEFAULT_WATCHLIST:
+                conn.execute("INSERT OR IGNORE INTO watchlist (symbol) VALUES (?)", (s,))
+        conn.execute("INSERT OR IGNORE INTO watchlist (symbol) VALUES (?)", (sym,))
+        conn.commit()
+    return {"symbols": get_watchlist()}
+
+
+@app.delete("/api/watchlist/{symbol}")
+def api_watchlist_remove(symbol: str, sub: dict = Depends(require_api_key)):
+    sym = symbol.upper().strip()
+    with get_db() as conn:
+        existing = conn.execute("SELECT symbol FROM watchlist").fetchall()
+        if not existing:
+            # Seed defaults first so user can remove from a full list
+            for s in DEFAULT_WATCHLIST:
+                conn.execute("INSERT OR IGNORE INTO watchlist (symbol) VALUES (?)", (s,))
+        conn.execute("DELETE FROM watchlist WHERE symbol=?", (sym,))
+        conn.commit()
+    return {"symbols": get_watchlist()}
+
+
+# ─── Stats endpoint ───────────────────────────────────────────────────────────
+
+@app.get("/api/stats")
+def api_stats(sub: dict = Depends(require_api_key)):
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT pnl_pct FROM tracked_positions WHERE status='closed'"
+        ).fetchall()
+    closed = [r["pnl_pct"] or 0 for r in rows]
+    total = len(closed)
+    if total == 0:
+        return {"total_trades": 0, "win_rate": 0.0, "avg_pnl": 0.0, "best_trade": 0.0}
+    wins = sum(1 for p in closed if p >= 30)  # captured 30%+ of max credit = win
+    return {
+        "total_trades": total,
+        "win_rate": round((wins / total) * 100, 1),
+        "avg_pnl": round(sum(closed) / total, 1),
+        "best_trade": round(max(closed), 1),
+    }
 
 
 @app.get("/api/admin/scan-now")

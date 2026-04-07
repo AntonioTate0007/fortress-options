@@ -114,3 +114,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+        # Watchlist table — user-editable list of symbols to scan
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS watchlist (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT UNIQUE NOT NULL
+        )
+        """)
+        conn.commit()

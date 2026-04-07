@@ -250,8 +250,8 @@ function formatFoundAt(ts: string): string {
 
 function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p: Play) => void; onViewReasoning: (p: Play) => void }) {
   const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
-
   const isHotCard = play.score >= 8;
+  const isBearCall = play.play_type === 'bear_call';
 
   return (
     <motion.div
@@ -271,18 +271,15 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
             <span className="text-2xl font-bold text-white">{play.symbol}</span>
             <ScoreBadge score={play.score} />
             {play.is_active === 1 ? (
-              <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full font-medium">
-                Latest
-              </span>
+              <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full font-medium">Latest</span>
             ) : (
-              <span className="text-[10px] text-zinc-500 bg-zinc-800 border border-zinc-700/50 px-2 py-0.5 rounded-full font-medium">
-                Earlier Today
-              </span>
+              <span className="text-[10px] text-zinc-500 bg-zinc-800 border border-zinc-700/50 px-2 py-0.5 rounded-full font-medium">Earlier Today</span>
+            )}
+            {isBearCall && (
+              <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full font-medium">Bear Call</span>
             )}
             {play.play_type === 'earnings' && (
-              <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">
-                Earnings
-              </span>
+              <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>
             )}
           </div>
           <p className="text-sm text-zinc-500 mt-0.5">${play.current_price.toFixed(2)} current</p>
@@ -309,12 +306,16 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
 
       <div className="bg-zinc-900/60 rounded-xl p-3 mb-3 space-y-1.5">
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-400">Sell (short)</span>
-          <span className="font-mono font-semibold text-emerald-400">${play.short_strike} Put</span>
+          <span className="text-zinc-400">Sell (short {isBearCall ? 'call' : 'put'})</span>
+          <span className={`font-mono font-semibold ${isBearCall ? 'text-red-400' : 'text-emerald-400'}`}>
+            ${play.short_strike} {isBearCall ? 'Call' : 'Put'}
+          </span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-zinc-400">Buy (long)</span>
-          <span className="font-mono font-semibold text-red-400">${play.long_strike} Put</span>
+          <span className="text-zinc-400">Buy (long {isBearCall ? 'call' : 'put'})</span>
+          <span className={`font-mono font-semibold ${isBearCall ? 'text-orange-400' : 'text-red-400'}`}>
+            ${play.long_strike} {isBearCall ? 'Call' : 'Put'}
+          </span>
         </div>
       </div>
 
@@ -444,7 +445,7 @@ function PositionCard({
 
 function HistoryRow({ pos }: { pos: Position }) {
   const pnl = pos.pnl_pct ?? 0;
-  const win = pnl >= 0;
+  const win = pnl >= 30; // Win = captured ≥30% of max profit
   return (
     <div className="bg-[#161618] border border-zinc-800/80 rounded-xl p-3.5 flex items-center justify-between">
       <div>
@@ -457,9 +458,10 @@ function HistoryRow({ pos }: { pos: Position }) {
         </p>
       </div>
       <div className="text-right">
-        <p className={`font-bold ${win ? 'text-emerald-400' : 'text-red-400'}`}>
-          {win ? '+' : ''}{pnl.toFixed(1)}%
+        <p className={`font-bold ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
         </p>
+        <p className="text-[10px] mt-0.5">{win ? '✅ Win' : pnl >= 0 ? '🟡 Partial' : '❌ Loss'}</p>
         <p className="text-[11px] text-zinc-500">
           ${pos.entry_credit.toFixed(2)} → ${pos.exit_credit?.toFixed(2) ?? '?'}
         </p>
@@ -619,6 +621,7 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
 
   const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
   const isHot = play.score >= 8;
+  const isBearCall = play.play_type === 'bear_call';
 
   const categories = [
     {
@@ -642,10 +645,10 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
       icon: '🛡️',
       value: bd.buffer,
       desc: bd.buffer === 2
-        ? `${play.buffer_pct.toFixed(1)}% below current price — strong downside cushion`
+        ? `${play.buffer_pct.toFixed(1)}% ${isBearCall ? 'above' : 'below'} current price — strong ${isBearCall ? 'upside' : 'downside'} cushion`
         : bd.buffer === 1
-        ? `${play.buffer_pct.toFixed(1)}% below current price — moderate buffer`
-        : `${play.buffer_pct.toFixed(1)}% below current price — tight, needs close watch`,
+        ? `${play.buffer_pct.toFixed(1)}% ${isBearCall ? 'above' : 'below'} current price — moderate buffer`
+        : `${play.buffer_pct.toFixed(1)}% ${isBearCall ? 'above' : 'below'} current price — tight, needs close watch`,
     },
     {
       label: 'Liquidity',
@@ -705,7 +708,7 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
                 <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>
               )}
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5">${play.short_strike}/${play.long_strike} Put Spread · ${play.net_credit.toFixed(2)} credit</p>
+            <p className="text-xs text-zinc-500 mt-0.5">${play.short_strike}/${play.long_strike} {isBearCall ? 'Call Spread' : 'Put Spread'} · ${play.net_credit.toFixed(2)} credit</p>
           </div>
           <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
             <X className="w-4 h-4 text-zinc-400" />
@@ -1187,11 +1190,14 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   const [confirmPin, setConfirmPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinSuccess, setPinSuccess] = useState('');
-  const [section, setSection] = useState<'connection' | 'security' | 'telegram'>('connection');
+  const [section, setSection] = useState<'connection' | 'security' | 'telegram' | 'watchlist'>('connection');
   const [tier, setTier] = useState<string | null>(null);
   const [biometricAvail, setBiometricAvail] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(localStorage.getItem('fortress_use_biometric') === 'true');
   const [lockTimeout, setLockTimeout] = useState<string>(localStorage.getItem('fortress_lock_timeout') || '5');
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [wlInput, setWlInput] = useState('');
+  const [wlLoading, setWlLoading] = useState(false);
 
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
@@ -1203,6 +1209,33 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
       }).catch(() => {});
     }
   }, []);
+
+  const loadWatchlist = () => {
+    apiFetch('/api/watchlist').then(d => setWatchlist(d.symbols || [])).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (section === 'watchlist') loadWatchlist();
+  }, [section]);
+
+  const addSymbol = async () => {
+    const sym = wlInput.trim().toUpperCase();
+    if (!sym) return;
+    setWlLoading(true);
+    try {
+      await apiFetch('/api/watchlist/add', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
+      setWlInput('');
+      loadWatchlist();
+    } catch {}
+    setWlLoading(false);
+  };
+
+  const removeSymbol = async (sym: string) => {
+    try {
+      await apiFetch(`/api/watchlist/${sym}`, { method: 'DELETE' });
+      loadWatchlist();
+    } catch {}
+  };
 
   const saveConnection = () => {
     localStorage.removeItem('fortress_server'); // clear any old local IP
@@ -1233,9 +1266,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-zinc-900 rounded-xl p-1 mb-5">
-          {(['connection', 'security', 'telegram'] as const).map((s) => (
+        {/* Tabs — row 1 */}
+        <div className="flex bg-zinc-900 rounded-xl p-1 mb-1">
+          {(['connection', 'security'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSection(s)}
@@ -1243,7 +1276,21 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                 section === s ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {s === 'connection' ? 'Connection' : s === 'security' ? 'Security' : '✈ Telegram'}
+              {s === 'connection' ? 'Connection' : 'Security'}
+            </button>
+          ))}
+        </div>
+        {/* Tabs — row 2 */}
+        <div className="flex bg-zinc-900 rounded-xl p-1 mb-5">
+          {(['telegram', 'watchlist'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSection(s)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${
+                section === s ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {s === 'telegram' ? '✈ Telegram' : '📋 Watchlist'}
             </button>
           ))}
         </div>
@@ -1408,8 +1455,52 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           <TelegramSection apiKey={apiKey} />
         )}
 
+        {section === 'watchlist' && (
+          <>
+            <p className="text-xs text-zinc-500 mb-3">Symbols the scanner watches for plays. Changes take effect on the next scan cycle.</p>
+
+            {/* Add symbol */}
+            <div className="flex gap-2 mb-4">
+              <input
+                value={wlInput}
+                onChange={e => setWlInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && addSymbol()}
+                placeholder="e.g. AAPL"
+                maxLength={6}
+                className="flex-1 bg-zinc-900 border border-zinc-700/60 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 font-mono uppercase"
+              />
+              <button
+                onClick={addSymbol}
+                disabled={wlLoading || !wlInput.trim()}
+                className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black font-bold rounded-xl text-sm transition-colors"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Symbol chips */}
+            {watchlist.length === 0 ? (
+              <p className="text-center text-zinc-600 text-sm py-6">No symbols yet — add some above</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {watchlist.map(sym => (
+                  <div key={sym} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-700/60 rounded-full px-3 py-1.5">
+                    <span className="text-sm font-mono font-semibold text-white">{sym}</span>
+                    <button
+                      onClick={() => removeSymbol(sym)}
+                      className="text-zinc-500 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {/* Version footer */}
-        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v1.9.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
+        <p className="text-center text-xs text-zinc-600 mt-6">Fortress Options v2.0.0{tier ? ` · ${tier.charAt(0).toUpperCase() + tier.slice(1)}` : ''}</p>
       </div>
     </Modal>
   );
@@ -1802,29 +1893,47 @@ function PositionsScreen({
 }
 
 function HistoryScreen({ history, loading }: { history: Position[]; loading: boolean }) {
-  const wins = history.filter(p => (p.pnl_pct ?? 0) >= 0).length;
+  // Win = closed with >= 30% of max profit captured (matches server definition)
+  const wins = history.filter(p => (p.pnl_pct ?? 0) >= 30).length;
   const totalPnl = history.reduce((s, p) => s + (p.pnl_pct ?? 0), 0);
+  const avgPnl = history.length ? totalPnl / history.length : 0;
+  const bestTrade = history.length ? Math.max(...history.map(p => p.pnl_pct ?? 0)) : 0;
+
+  const [serverStats, setServerStats] = useState<{ total_trades: number; win_rate: number; avg_pnl: number; best_trade: number } | null>(null);
+
+  useEffect(() => {
+    apiFetch('/api/stats').then(d => setServerStats(d)).catch(() => {});
+  }, []);
+
+  const displayWinRate = serverStats ? serverStats.win_rate.toFixed(0) : (history.length ? ((wins / history.length) * 100).toFixed(0) : '0');
+  const displayAvgPnl = serverStats ? serverStats.avg_pnl : avgPnl;
+  const displayBest = serverStats ? serverStats.best_trade : bestTrade;
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
         <h2 className="text-sm font-bold text-white">Trade History</h2>
-        <p className="text-xs text-zinc-500">{history.length} closed trades</p>
-        {history.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mt-3">
+        <p className="text-xs text-zinc-500">{serverStats ? serverStats.total_trades : history.length} closed trades</p>
+        {(history.length > 0 || serverStats) && (
+          <div className="grid grid-cols-2 gap-2 mt-3">
             <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
               <p className="text-[10px] text-zinc-500 uppercase">Win Rate</p>
-              <p className="font-bold text-white">{history.length ? ((wins / history.length) * 100).toFixed(0) : 0}%</p>
+              <p className="font-bold text-emerald-400">{displayWinRate}%</p>
+              <p className="text-[9px] text-zinc-600 mt-0.5">≥30% profit = win</p>
             </div>
             <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
-              <p className="text-[10px] text-zinc-500 uppercase">Total P&L</p>
-              <p className={`font-bold ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(0)}%
+              <p className="text-[10px] text-zinc-500 uppercase">Avg P&L</p>
+              <p className={`font-bold ${displayAvgPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {displayAvgPnl >= 0 ? '+' : ''}{displayAvgPnl.toFixed(0)}%
               </p>
             </div>
             <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
               <p className="text-[10px] text-zinc-500 uppercase">W / L</p>
               <p className="font-bold text-white">{wins} / {history.length - wins}</p>
+            </div>
+            <div className="bg-zinc-900 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase">Best Trade</p>
+              <p className="font-bold text-emerald-400">+{displayBest.toFixed(0)}%</p>
             </div>
           </div>
         )}
@@ -2330,7 +2439,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '1.9.0';
+  const CURRENT_VERSION = '2.0.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -2510,7 +2619,7 @@ export default function App() {
       title: p.score >= 8
         ? `🔥 HOT PLAY — ${p.symbol} (${p.score}/10)`
         : `⚡ New Play — ${p.symbol} (${p.score}/10)`,
-      body: `$${p.short_strike}/$${p.long_strike} Put Spread · $${p.net_credit.toFixed(2)} credit · ${p.buffer_pct.toFixed(1)}% buffer`,
+      body: `$${p.short_strike}/$${p.long_strike} ${p.play_type === 'bear_call' ? 'Call Spread' : 'Put Spread'} · $${p.net_credit.toFixed(2)} credit · ${p.buffer_pct.toFixed(1)}% buffer`,
       schedule: { at: new Date(Date.now() + i * 400) },
       sound: 'fortress_alert',
       smallIcon: 'ic_stat_icon_config_sample',
