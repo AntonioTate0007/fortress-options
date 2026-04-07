@@ -1,6 +1,6 @@
 {
-  "latest": "2.1.0",
+  "latest": "2.2.0",
   "min_required": "1.3.0",
-  "download": "https://fortress-options.com/fortress-v2.1.0.apk",
-  "changelog": "Iron Condors · CSV Export · P&L Payoff Chart · Custom Alert Target · Earnings Filter · www DNS · Home Widget"
+  "download": "https://fortress-options.com/fortress-v2.2.0.apk",
+  "changelog": "Manage Subscription · Stripe Customer Portal · Billing portal in Settings"
 }
