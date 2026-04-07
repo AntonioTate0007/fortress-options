@@ -2685,7 +2685,17 @@ export default function App() {
       apiFetch('/api/alerts'),
       apiFetch('/api/status'),
     ]);
-    if (playsData.status === 'fulfilled') setPlays(playsData.value);
+    if (playsData.status === 'fulfilled') {
+      setPlays(playsData.value);
+      // Write top play to Capacitor Preferences so the home screen widget can read it
+      const top = playsData.value?.[0];
+      if (top) {
+        try {
+          // @ts-ignore
+          window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+        } catch {}
+      }
+    }
     if (posData.status === 'fulfilled') setPositions(posData.value);
     if (histData.status === 'fulfilled') setHistory(histData.value);
     if (alertData.status === 'fulfilled') setAlerts(alertData.value);
@@ -2844,6 +2854,13 @@ export default function App() {
       try {
         const data = await apiFetch('/api/plays');
         setPlays(data);
+        const top = data?.[0];
+        if (top) {
+          try {
+            // @ts-ignore
+            window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+          } catch {}
+        }
       } catch {}
     }, 12_000); // check for new plays every 12s
     return () => clearInterval(fastId);
