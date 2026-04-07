@@ -159,7 +159,18 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.2.1';
+const CURRENT_VERSION = '2.2.2';
+
+// ─── Tablet detection ─────────────────────────────────────────────────────────
+function useIsTablet() {
+  const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
+  useEffect(() => {
+    const update = () => setIsTablet(window.innerWidth >= 768);
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return isTablet;
+}
 
 // ─── Theme ───────────────────────────────────────────────────────────────────
 const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: true, toggle: () => {} });
@@ -2660,6 +2671,349 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
   );
 }
 
+// ─── Tablet Components ────────────────────────────────────────────────────────
+
+/** Upgrade banner shown to Basic-tier users on tablet */
+function TabletUpgradeBanner() {
+  return (
+    <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-500/10 to-zinc-900/50 border-b border-emerald-500/20">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white leading-tight">Tablet Layout Available</p>
+        <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
+          Upgrade to Pro or Elite for the full tablet experience — side-by-side plays &amp; positions, expanded score breakdowns, and more.
+        </p>
+      </div>
+      <a
+        href="https://fortress-options.com/#pricing"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 px-4 py-2 bg-emerald-500 text-black font-bold text-xs rounded-xl"
+      >
+        Upgrade
+      </a>
+    </div>
+  );
+}
+
+/** Expanded play card for tablet — shows score breakdown bars + AI insight preview */
+function TabletPlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p: Play) => void; onViewReasoning: (p: Play) => void }) {
+  const returnPct = ((play.net_credit / play.spread_width) * 100).toFixed(1);
+  const isHotCard = play.score >= 8;
+  const isBearCall = play.play_type === 'bear_call';
+  const isIronCondor = play.play_type === 'iron_condor';
+  const bd: Record<string, number> = play.score_breakdown ? JSON.parse(play.score_breakdown) : {};
+
+  const breakdownItems = [
+    { label: 'Premium', value: bd.premium_ratio ?? 0, max: 3 },
+    { label: 'Buffer',  value: bd.buffer         ?? 0, max: 2 },
+    { label: 'Liquid',  value: bd.liquidity       ?? 0, max: 2 },
+    { label: 'DTE',     value: bd.dte             ?? 0, max: 2 },
+    { label: 'IV',      value: bd.iv              ?? 0, max: 1 },
+  ];
+  const hasBreakdown = Object.keys(bd).length > 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-[#161618] rounded-2xl p-4 cursor-pointer active:scale-[0.99] transition-all ${
+        isHotCard ? 'border border-emerald-500/50' : 'border border-zinc-800/80'
+      }`}
+      style={isHotCard ? { boxShadow: '0 0 28px rgba(16,185,129,0.18), 0 0 0 1px rgba(16,185,129,0.3)' } : undefined}
+      onClick={() => onViewReasoning(play)}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-2xl font-bold text-white">{play.symbol}</span>
+            <ScoreBadge score={play.score} />
+            {play.is_active === 1
+              ? <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full font-medium">Latest</span>
+              : <span className="text-[10px] text-zinc-500 bg-zinc-800 border border-zinc-700/50 px-2 py-0.5 rounded-full font-medium">Earlier Today</span>}
+            {isBearCall && <span className="text-[10px] text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full font-medium">Bear Call</span>}
+            {isIronCondor && <span className="text-[10px] text-purple-400 bg-purple-400/10 border border-purple-400/20 px-2 py-0.5 rounded-full font-medium">Iron Condor</span>}
+            {play.play_type === 'earnings' && <span className="text-[10px] text-orange-400 bg-orange-400/10 border border-orange-400/20 px-2 py-0.5 rounded-full font-medium">Earnings</span>}
+          </div>
+          <p className="text-sm text-zinc-500 mt-0.5">${play.current_price.toFixed(2)} current</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-bold text-emerald-400">${play.net_credit.toFixed(2)}</p>
+          <p className="text-[10px] text-zinc-500">per share</p>
+        </div>
+      </div>
+
+      {/* Expiration */}
+      <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700/50 rounded-xl px-3 py-2 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Expires</span>
+          <span className="text-sm font-semibold text-white">{formatExpiration(play.expiration, play.dte)}</span>
+        </div>
+        {play.found_at && (
+          <div className="flex items-center gap-1 bg-zinc-800 rounded-lg px-2 py-0.5">
+            <Clock className="w-2.5 h-2.5 text-emerald-500" />
+            <span className="text-[11px] font-medium text-zinc-300">{formatFoundAt(play.found_at)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Strikes */}
+      <div className="bg-zinc-900/60 rounded-xl p-3 mb-3 space-y-1.5">
+        {isIronCondor ? (
+          <>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell put / buy put</span>
+              <span className="font-mono font-semibold text-emerald-400">${play.short_strike} / ${bd.put_long ?? (play.short_strike - 5)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell call / buy call</span>
+              <span className="font-mono font-semibold text-sky-400">${bd.call_short ?? play.long_strike} / ${bd.call_long ?? (play.long_strike + 5)}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-500 pt-0.5 border-t border-zinc-700/40">
+              <span>Profit zone</span>
+              <span className="text-purple-300">${play.short_strike} – ${play.long_strike}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Sell (short {isBearCall ? 'call' : 'put'})</span>
+              <span className={`font-mono font-semibold ${isBearCall ? 'text-red-400' : 'text-emerald-400'}`}>
+                ${play.short_strike} {isBearCall ? 'Call' : 'Put'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-zinc-400">Buy (long {isBearCall ? 'call' : 'put'})</span>
+              <span className={`font-mono font-semibold ${isBearCall ? 'text-orange-400' : 'text-red-400'}`}>
+                ${play.long_strike} {isBearCall ? 'Call' : 'Put'}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-3 gap-x-2 gap-y-2 mb-3">
+        <StatPill label="Buffer"   value={`${play.buffer_pct.toFixed(1)}%`} />
+        <StatPill label="Return"   value={`${returnPct}%`} />
+        <StatPill label="Max Risk" value={`$${play.max_risk.toFixed(0)}`} />
+        <StatPill label="IV"       value={`${(play.iv * 100).toFixed(0)}%`} dim />
+        <StatPill label="Volume"   value={`${play.volume || 0}`} dim />
+        <StatPill label="OI"       value={`${play.open_interest || 0}`} dim />
+      </div>
+
+      {/* Score breakdown bars — tablet-exclusive */}
+      {hasBreakdown && (
+        <div className="mb-3 bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-3">
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-2">Score Breakdown</p>
+          <div className="space-y-1.5">
+            {breakdownItems.map(item => (
+              <div key={item.label} className="flex items-center gap-2">
+                <span className="text-[10px] text-zinc-500 w-14 shrink-0">{item.label}</span>
+                <div className="flex-1 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, item.max > 0 ? (item.value / item.max) * 100 : 0)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-mono text-zinc-300 w-8 text-right shrink-0">{item.value}/{item.max}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI insight preview — tablet-exclusive */}
+      {play.ai_analysis && (
+        <div className="mb-3 bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-3">
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1.5">🤖 AI Insight</p>
+          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-3">
+            {play.ai_analysis.replace(/\*\*/g, '').slice(0, 220)}{play.ai_analysis.length > 220 ? '…' : ''}
+          </p>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={e => { e.stopPropagation(); onViewReasoning(play); }}
+          className="flex-none px-3 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl transition-colors border border-zinc-700/50"
+        >
+          Full Analysis
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onTrack(play); }}
+          className={`flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors ${play.score >= 8 ? 'animate-pulse' : ''}`}
+          style={play.score >= 8 ? { boxShadow: '0 0 18px 5px rgba(16,185,129,0.55)' } : undefined}
+        >
+          {play.score >= 8 ? '🔥 Track Trade' : 'Track Trade'}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Left panel of the tablet layout — plays with expanded cards */
+function TabletPlaysPanel({
+  plays, loading, scanning, onTrack, onViewReasoning, onRefresh,
+}: {
+  plays: Play[];
+  loading: boolean;
+  scanning: boolean;
+  onTrack: (p: Play) => void;
+  onViewReasoning: (p: Play) => void;
+  onRefresh: () => void;
+}) {
+  const lastScan = plays.reduce((best, p) => (!p.found_at ? best : (!best || p.found_at > best ? p.found_at : best)), '' as string);
+  const lastScanLabel = lastScan ? `Last scan ${formatFoundAt(lastScan)}` : null;
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-[#0A0A0B]/90 backdrop-blur-sm z-10 border-b border-zinc-800/50">
+        <div>
+          <h2 className="text-sm font-bold text-white">Ranked Plays</h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+            {lastScanLabel && (
+              <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+                <Clock className="w-2.5 h-2.5" />
+                {lastScanLabel}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={onRefresh}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm text-zinc-300 transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${scanning || loading ? 'animate-spin text-emerald-400' : ''}`} />
+          {scanning ? 'Scanning…' : 'Scan'}
+        </button>
+      </div>
+
+      {loading && plays.length === 0 ? (
+        <LoadingSkeleton />
+      ) : plays.length === 0 ? (
+        <div className="flex flex-col items-center py-20 text-zinc-600 gap-3 px-6 text-center">
+          {isMarketJustOpened() ? (
+            <>
+              <div className="relative">
+                <Target className="w-14 h-14 opacity-20" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500" />
+              </div>
+              <p className="font-semibold text-zinc-400">Scanning for plays…</p>
+              <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
+                Market just opened at 9:30 AM ET. Plays appear once liquidity settles.
+              </p>
+            </>
+          ) : (
+            <>
+              <Target className="w-14 h-14 opacity-20" />
+              <p className="font-medium text-zinc-500">{isMarketOpen() ? 'No plays found' : 'Market is closed'}</p>
+              <p className="text-sm text-zinc-600">{isMarketOpen() ? 'Tap Scan to check the market' : 'Scanner runs Mon–Fri 9:30 AM – 4:00 PM ET'}</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="px-4 py-4 space-y-4">
+          {plays.map(p => (
+            <TabletPlayCard key={p.id} play={p} onTrack={onTrack} onViewReasoning={onViewReasoning} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Two-column tablet layout for Pro/Elite users */
+function TabletLayout({
+  plays, positions, history, alerts, loading, scanning,
+  tab, setTab, unreadAlerts,
+  onTrack, onViewReasoning, onRefresh, onLoadAll,
+  onRecommend, onClose, onAck, onDelete, onClearAlerts,
+}: {
+  plays: Play[];
+  positions: Position[];
+  history: Position[];
+  alerts: Alert[];
+  loading: boolean;
+  scanning: boolean;
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  unreadAlerts: number;
+  onTrack: (p: Play) => void;
+  onViewReasoning: (p: Play) => void;
+  onRefresh: () => void;
+  onLoadAll: () => void;
+  onRecommend: (p: Position) => void;
+  onClose: (p: Position) => void;
+  onAck: (id: number) => void;
+  onDelete: (id: number) => void;
+  onClearAlerts: () => void;
+}) {
+  // Left pane always shows plays; right pane shows secondary tabs
+  const rightTab: Tab = tab === 'plays' ? 'positions' : tab;
+
+  return (
+    <div className="flex-1 overflow-hidden flex">
+      {/* Left: Plays (55%) */}
+      <div className="w-[55%] flex flex-col border-r border-zinc-800/80 overflow-hidden">
+        <TabletPlaysPanel
+          plays={plays} loading={loading} scanning={scanning}
+          onTrack={onTrack} onViewReasoning={onViewReasoning} onRefresh={onRefresh}
+        />
+      </div>
+
+      {/* Right: Secondary panel (45%) */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Right pane tab switcher */}
+        <div className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#0D0D0E] border-b border-zinc-800/80">
+          {(['positions', 'history', 'earnings', 'alerts'] as Tab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize ${
+                rightTab === t ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {t}
+              {t === 'alerts' && unreadAlerts > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadAlerts}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Right pane content */}
+        <AnimatePresence mode="wait">
+          {rightTab === 'positions' && (
+            <motion.div key="t-pos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+              <PositionsScreen positions={positions} loading={loading} onRefresh={onLoadAll} onRecommend={onRecommend} onClose={onClose} />
+            </motion.div>
+          )}
+          {rightTab === 'history' && (
+            <motion.div key="t-hist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+              <HistoryScreen history={history} loading={loading} />
+            </motion.div>
+          )}
+          {rightTab === 'earnings' && (
+            <motion.div key="t-earn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+              <EarningsScreen />
+            </motion.div>
+          )}
+          {rightTab === 'alerts' && (
+            <motion.div key="t-alrt" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+              <AlertsScreen alerts={alerts} loading={loading} onAck={onAck} onDelete={onDelete} onClearAll={onClearAlerts} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -2989,6 +3343,19 @@ export default function App() {
   const unreadAlerts = alerts.filter(a => !a.acknowledged).length;
   const isOnline = status?.status === 'online';
 
+  // ── Tablet detection + tier ───────────────────────────────────────────────
+  const isTablet = useIsTablet();
+  const [userTier, setUserTier] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (setupDone && !locked) {
+      apiFetch('/api/auth/verify').then((d: { tier?: string }) => setUserTier(d.tier ?? null)).catch(() => {});
+    }
+  }, [setupDone, locked]);
+
+  const isPremiumTablet = isTablet && (userTier === 'pro' || userTier === 'elite');
+  const isBasicTablet   = isTablet && userTier === 'basic';
+
   if (!setupDone) return (
     <OnboardingFlow
       initialStep={onboardStart}
@@ -3065,37 +3432,55 @@ export default function App() {
         </div>
       )}
 
-      {/* Screen */}
-      <AnimatePresence mode="wait">
-        {tab === 'plays' && (
-          <motion.div key="plays" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onViewReasoning={setReasoningPlay} onRefresh={handleScan} />
-          </motion.div>
-        )}
-        {tab === 'positions' && (
-          <motion.div key="positions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <PositionsScreen positions={positions} loading={loading} onRefresh={loadAll} onRecommend={setRecommendPos} onClose={setClosePos} />
-          </motion.div>
-        )}
-        {tab === 'earnings' && (
-          <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <EarningsScreen />
-          </motion.div>
-        )}
-        {tab === 'history' && (
-          <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <HistoryScreen history={history} loading={loading} />
-          </motion.div>
-        )}
-        {tab === 'alerts' && (
-          <motion.div key="alerts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-            <AlertsScreen alerts={alerts} loading={loading} onAck={handleAck} onDelete={handleDeleteAlert} onClearAll={handleClearAlerts} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Upgrade banner for Basic tier on tablet */}
+      {isBasicTablet && <TabletUpgradeBanner />}
 
-      {/* Bottom Nav */}
-      <BottomNav tab={tab} setTab={setTab} alertCount={unreadAlerts} />
+      {/* Main content — tablet two-column or standard mobile layout */}
+      {isPremiumTablet ? (
+        <TabletLayout
+          plays={plays} positions={positions} history={history} alerts={alerts}
+          loading={loading} scanning={status?.scanning ?? false}
+          tab={tab} setTab={setTab} unreadAlerts={unreadAlerts}
+          onTrack={setTrackPlay} onViewReasoning={setReasoningPlay}
+          onRefresh={handleScan} onLoadAll={loadAll}
+          onRecommend={setRecommendPos} onClose={setClosePos}
+          onAck={handleAck} onDelete={handleDeleteAlert} onClearAlerts={handleClearAlerts}
+        />
+      ) : (
+        <>
+          {/* Screen */}
+          <AnimatePresence mode="wait">
+            {tab === 'plays' && (
+              <motion.div key="plays" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+                <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onViewReasoning={setReasoningPlay} onRefresh={handleScan} />
+              </motion.div>
+            )}
+            {tab === 'positions' && (
+              <motion.div key="positions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+                <PositionsScreen positions={positions} loading={loading} onRefresh={loadAll} onRecommend={setRecommendPos} onClose={setClosePos} />
+              </motion.div>
+            )}
+            {tab === 'earnings' && (
+              <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+                <EarningsScreen />
+              </motion.div>
+            )}
+            {tab === 'history' && (
+              <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+                <HistoryScreen history={history} loading={loading} />
+              </motion.div>
+            )}
+            {tab === 'alerts' && (
+              <motion.div key="alerts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
+                <AlertsScreen alerts={alerts} loading={loading} onAck={handleAck} onDelete={handleDeleteAlert} onClearAll={handleClearAlerts} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Bottom Nav */}
+          <BottomNav tab={tab} setTab={setTab} alertCount={unreadAlerts} />
+        </>
+      )}
 
       {/* Modals */}
       <AnimatePresence>
