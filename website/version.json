@@ -1,6 +1,6 @@
 {
-  "latest": "2.2.0",
+  "latest": "2.2.1",
   "min_required": "1.3.0",
-  "download": "https://fortress-options.com/fortress-v2.2.0.apk",
-  "changelog": "Manage Subscription · Stripe Customer Portal · Billing portal in Settings"
+  "download": "https://fortress-options.com/fortress-v2.2.1.apk",
+  "changelog": "Fix update notification · Manage Subscription · Stripe Customer Portal"
 }

@@ -2675,7 +2675,7 @@ export default function App() {
   });
 
   // ── Update check ─────────────────────────────────────────────────────────────
-  const CURRENT_VERSION = '2.1.0';
+  const CURRENT_VERSION = '2.2.0';
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; download: string; changelog: string } | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
