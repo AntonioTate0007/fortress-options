@@ -1173,6 +1173,54 @@ def api_stats(sub: dict = Depends(require_api_key)):
     }
 
 
+# ─── Stock Splits endpoint ───────────────────────────────────────────────────
+
+@app.get("/api/splits")
+def api_splits(sub: dict = Depends(require_api_key)):
+    """
+    Return upcoming and recent stock splits for symbols the user can access.
+    - Checks splits in a ±60-day window around today using yfinance.
+    - Returns list of {symbol, ratio, date, days_away, type: 'upcoming'|'recent'}.
+    """
+    from datetime import date, timedelta
+    import pandas as pd
+
+    tier = sub.get("tier", "basic")
+    tier_info = TIERS.get(tier, TIERS["basic"])
+    symbols = tier_info["symbols"]
+
+    today = date.today()
+    window_past  = today - timedelta(days=14)   # show splits up to 14 days ago
+    window_future = today + timedelta(days=60)   # show splits up to 60 days ahead
+
+    results = []
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol, session=_yf_session)
+            splits = ticker.splits  # pandas Series, index = DatetimeIndex, values = ratio
+
+            if splits is None or splits.empty:
+                continue
+
+            for split_date, ratio in splits.items():
+                d = split_date.date() if hasattr(split_date, 'date') else split_date
+                if window_past <= d <= window_future and ratio != 1.0:
+                    days_away = (d - today).days
+                    results.append({
+                        "symbol": symbol,
+                        "ratio": float(ratio),
+                        "date": d.isoformat(),
+                        "days_away": days_away,
+                        "type": "upcoming" if days_away >= 0 else "recent",
+                    })
+        except Exception:
+            continue
+
+    # Sort: upcoming first (soonest first), then recent (most recent first)
+    results.sort(key=lambda x: x["days_away"] if x["days_away"] >= 0 else 999 - x["days_away"])
+    return {"splits": results}
+
+
 @app.get("/api/admin/scan-now")
 def scan_now_sync(admin_key: str = ""):
     """Admin: run full scan synchronously and return per-symbol results."""

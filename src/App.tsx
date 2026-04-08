@@ -159,7 +159,7 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.2.2';
+const CURRENT_VERSION = '2.2.3';
 
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
@@ -2671,6 +2671,94 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
   );
 }
 
+// ─── Stock Split Types & Hook ─────────────────────────────────────────────────
+
+interface SplitEvent {
+  symbol: string;
+  ratio: number;
+  date: string;
+  days_away: number;
+  type: 'upcoming' | 'recent';
+}
+
+function useSplits() {
+  const [splits, setSplits] = useState<SplitEvent[]>([]);
+
+  useEffect(() => {
+    apiFetch('/api/splits')
+      .then((d: { splits: SplitEvent[] }) => {
+        if (Array.isArray(d.splits) && d.splits.length > 0) {
+          // Filter out ones already dismissed this session
+          const dismissed = JSON.parse(localStorage.getItem('fortress_dismissed_splits') || '[]') as string[];
+          setSplits(d.splits.filter(s => !dismissed.includes(`${s.symbol}-${s.date}`)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const dismiss = (symbol: string, date: string) => {
+    const key = `${symbol}-${date}`;
+    const dismissed = JSON.parse(localStorage.getItem('fortress_dismissed_splits') || '[]') as string[];
+    if (!dismissed.includes(key)) {
+      localStorage.setItem('fortress_dismissed_splits', JSON.stringify([...dismissed, key]));
+    }
+    setSplits(prev => prev.filter(s => !(s.symbol === symbol && s.date === date)));
+  };
+
+  return { splits, dismiss };
+}
+
+// ─── Stock Split Banner ───────────────────────────────────────────────────────
+
+function SplitBanner({ splits, onDismiss }: { splits: SplitEvent[]; onDismiss: (symbol: string, date: string) => void }) {
+  if (splits.length === 0) return null;
+
+  return (
+    <div className="shrink-0 space-y-0">
+      {splits.map(s => {
+        const [num, den] = s.ratio >= 1
+          ? [Math.round(s.ratio), 1]
+          : [1, Math.round(1 / s.ratio)];
+        const ratioLabel = s.ratio >= 1 ? `${num}:${den}` : `1:${Math.round(1 / s.ratio)}`;
+        const isUpcoming = s.type === 'upcoming';
+        const dateLabel = s.days_away === 0 ? 'Today' :
+          s.days_away === 1 ? 'Tomorrow' :
+          isUpcoming ? `In ${s.days_away} days` :
+          `${Math.abs(s.days_away)}d ago`;
+
+        return (
+          <div
+            key={`${s.symbol}-${s.date}`}
+            className={`flex items-center justify-between px-4 py-2 border-b ${
+              isUpcoming
+                ? 'bg-yellow-500/10 border-yellow-500/30'
+                : 'bg-zinc-800/60 border-zinc-700/40'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base">✂️</span>
+              <div className="min-w-0">
+                <span className={`text-xs font-bold ${isUpcoming ? 'text-yellow-300' : 'text-zinc-300'}`}>
+                  {s.symbol} {ratioLabel} Stock Split
+                </span>
+                <span className="text-[10px] text-zinc-500 ml-2">
+                  {isUpcoming ? '⚡ Upcoming' : '📅 Recent'} · {dateLabel} ({s.date})
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => onDismiss(s.symbol, s.date)}
+              className="shrink-0 ml-2 text-zinc-600 hover:text-zinc-400 p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Tablet Components ────────────────────────────────────────────────────────
 
 /** Upgrade banner shown to Basic-tier users on tablet */
@@ -3356,6 +3444,9 @@ export default function App() {
   const isPremiumTablet = isTablet && (userTier === 'pro' || userTier === 'elite');
   const isBasicTablet   = isTablet && userTier === 'basic';
 
+  // ── Stock split notifications ─────────────────────────────────────────────
+  const { splits, dismiss: dismissSplit } = useSplits();
+
   if (!setupDone) return (
     <OnboardingFlow
       initialStep={onboardStart}
@@ -3431,6 +3522,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Stock split notifications */}
+      <SplitBanner splits={splits} onDismiss={dismissSplit} />
 
       {/* Upgrade banner for Basic tier on tablet */}
       {isBasicTablet && <TabletUpgradeBanner />}
