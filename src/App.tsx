@@ -2380,6 +2380,10 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
   const [setupPin, setSetupPin] = useState('');
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState('');
+  const [recovering, setRecovering] = useState(false);
+  const [recoverMsg, setRecoverMsg] = useState('');
+  const [showRecover, setShowRecover] = useState(false);
 
   useEffect(() => {
     // @ts-ignore
@@ -2402,9 +2406,29 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
       setStep('security');
     } catch {
       localStorage.removeItem('fortress_api_key');
-      setVerifyError('Invalid API key. Subscribe at fortress-options.com to get yours.');
+      setVerifyError('Invalid API key. Use "Recover my key" below if you forgot it.');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const recoverKey = async () => {
+    if (!recoverEmail.trim()) return;
+    setRecovering(true);
+    setRecoverMsg('');
+    try {
+      const SERVER = 'https://fortress-options.onrender.com';
+      const res = await fetch(`${SERVER}/api/auth/recover?email=${encodeURIComponent(recoverEmail.trim())}`);
+      if (res.ok) {
+        setRecoverMsg('Check your email — your API key has been sent.');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setRecoverMsg(err.detail || 'No subscription found for that email.');
+      }
+    } catch {
+      setRecoverMsg('Could not connect. Try again shortly.');
+    } finally {
+      setRecovering(false);
     }
   };
 
@@ -2585,6 +2609,41 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
       >
         {verifying ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying…</> : 'Verify & Continue'}
       </button>
+
+      {/* Key recovery */}
+      <div className="mt-2">
+        {!showRecover ? (
+          <button
+            onClick={() => setShowRecover(true)}
+            className="w-full py-2 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+          >
+            Lost your key? Recover it
+          </button>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
+            <p className="text-zinc-400 text-sm">Enter your subscription email and we'll resend your key.</p>
+            <input
+              value={recoverEmail}
+              onChange={e => { setRecoverEmail(e.target.value); setRecoverMsg(''); }}
+              placeholder="your@email.com"
+              type="email"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500"
+            />
+            {recoverMsg && (
+              <p className={`text-sm ${recoverMsg.includes('sent') ? 'text-emerald-400' : 'text-red-400'}`}>
+                {recoverMsg}
+              </p>
+            )}
+            <button
+              onClick={recoverKey}
+              disabled={recovering || !recoverEmail.trim()}
+              className="w-full py-3 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              {recovering ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : 'Send My Key'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 

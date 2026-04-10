@@ -823,25 +823,61 @@ def background_loop():
 
 
 def seed_accounts():
-    """Ensure owner accounts survive ephemeral DB resets on Render."""
-    seeds = [
-        {
-            "email": "antonio@fortress-options.com",
-            "api_key": os.getenv("OWNER_API_KEY", "frt_IyX69zER4dj4TYNevSUdJ8iSBANMX6L0dPyLKJMaCzU"),
-            "tier": "elite",
-        },
-    ]
+    """Ensure owner accounts survive DB resets, and sync all active Stripe subscribers."""
+    # Always seed the owner account with a known key
+    owner_key = os.getenv("OWNER_API_KEY", "frt_IyX69zER4dj4TYNevSUdJ8iSBANMX6L0dPyLKJMaCzU")
+    owner_email = os.getenv("OWNER_EMAIL", "antonio@fortress-options.com")
     with get_db() as conn:
-        for s in seeds:
-            exists = conn.execute(
-                "SELECT id FROM subscribers WHERE api_key=?", (s["api_key"],)
-            ).fetchone()
-            if not exists:
-                conn.execute(
-                    "INSERT OR IGNORE INTO subscribers (email, api_key, tier, status) VALUES (?,?,?,'active')",
-                    (s["email"], s["api_key"], s["tier"]),
-                )
+        existing = conn.execute("SELECT id FROM subscribers WHERE email=?", (owner_email,)).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE subscribers SET api_key=?, tier='elite', status='active' WHERE email=?",
+                (owner_key, owner_email),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO subscribers (email, api_key, tier, status) VALUES (?,?,'elite','active')",
+                (owner_email, owner_key),
+            )
         conn.commit()
+
+    # Sync all active Stripe subscribers into DB
+    if not stripe.api_key:
+        return
+    try:
+        for sub in stripe.Subscription.list(status="active", limit=100).auto_paging_iter():
+            try:
+                customer = stripe.Customer.retrieve(sub["customer"])
+                email = customer.get("email", "").strip().lower()
+                if not email:
+                    continue
+                amount = sub["items"]["data"][0]["price"]["unit_amount"]
+                if amount <= 3000:
+                    tier = "basic"
+                elif amount <= 6000:
+                    tier = "pro"
+                else:
+                    tier = "elite"
+                with get_db() as conn:
+                    row = conn.execute("SELECT id, api_key FROM subscribers WHERE email=?", (email,)).fetchone()
+                    if row:
+                        # Keep their existing key, just ensure status is active
+                        conn.execute(
+                            "UPDATE subscribers SET tier=?, status='active', stripe_customer_id=?, stripe_subscription_id=? WHERE email=?",
+                            (tier, sub["customer"], sub["id"], email),
+                        )
+                    else:
+                        new_key = generate_api_key()
+                        conn.execute(
+                            "INSERT INTO subscribers (email, api_key, tier, status, stripe_customer_id, stripe_subscription_id) VALUES (?,?,?,?,?,?)",
+                            (email, new_key, tier, "active", sub["customer"], sub["id"]),
+                        )
+                    conn.commit()
+            except Exception:
+                continue
+        print("[seed] Stripe subscriber sync complete")
+    except Exception as e:
+        print(f"[seed] Stripe sync failed (non-fatal): {e}")
 
 
 @asynccontextmanager
@@ -1019,6 +1055,55 @@ def trigger_earnings_briefing(admin_key: str = ""):
 def verify_key(sub: dict = Depends(require_api_key)):
     """Check if an API key is valid and return subscriber info."""
     return {"valid": True, "email": sub["email"], "tier": sub["tier"]}
+
+
+@app.post("/api/auth/recover")
+def recover_key(email: str):
+    """Re-issue API key for an existing Stripe subscriber.
+    Looks up active Stripe subscription by email and re-seeds the account."""
+    email = email.strip().lower()
+    if not email:
+        raise HTTPException(400, "Email required")
+
+    # Check if already in DB with active subscription
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT api_key, tier, status FROM subscribers WHERE email=?", (email,)
+        ).fetchone()
+        if existing and existing["status"] == "active":
+            send_api_key_email(email, existing["api_key"], existing["tier"])
+            return {"message": "API key sent to your email"}
+
+    # Look up in Stripe
+    if not stripe.api_key:
+        raise HTTPException(503, "Stripe not configured")
+    try:
+        customers = stripe.Customer.list(email=email, limit=1)
+        if not customers.data:
+            raise HTTPException(404, "No subscription found for that email")
+        customer = customers.data[0]
+        subs = stripe.Subscription.list(customer=customer.id, status="active", limit=1)
+        if not subs.data:
+            # Try trialing
+            subs = stripe.Subscription.list(customer=customer.id, status="trialing", limit=1)
+        if not subs.data:
+            raise HTTPException(404, "No active subscription found for that email")
+        sub = subs.data[0]
+        # Determine tier from price amount
+        amount = sub["items"]["data"][0]["price"]["unit_amount"]
+        if amount <= 3000:
+            tier = "basic"
+        elif amount <= 6000:
+            tier = "pro"
+        else:
+            tier = "elite"
+        api_key = create_subscriber(email, tier, customer.id, sub.id)
+        send_api_key_email(email, api_key, tier)
+        return {"message": "API key sent to your email"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Recovery failed: {str(e)}")
 
 
 @app.get("/api/subscribers")
