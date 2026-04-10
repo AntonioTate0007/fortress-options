@@ -772,43 +772,105 @@ def _keep_alive_ping():
         pass
 
 
-def send_daily_morning_briefing():
-    """Send 8:30 AM ET market-open briefing to all subscribers every market day."""
-    from datetime import date as _date
+_MARKET_HOLIDAYS_2026 = {
+    __import__('datetime').date(2026, 1, 1),
+    __import__('datetime').date(2026, 1, 19),
+    __import__('datetime').date(2026, 2, 16),
+    __import__('datetime').date(2026, 4, 3),
+    __import__('datetime').date(2026, 5, 25),
+    __import__('datetime').date(2026, 7, 3),
+    __import__('datetime').date(2026, 9, 7),
+    __import__('datetime').date(2026, 11, 26),
+    __import__('datetime').date(2026, 12, 25),
+}
+
+
+def _is_market_day(now_et=None):
+    """Return True if today is a trading day (Mon–Fri, not a holiday)."""
+    if now_et is None:
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+    return now_et.weekday() < 5 and now_et.date() not in _MARKET_HOLIDAYS_2026
+
+
+def send_good_morning():
+    """8:30 AM ET — Good morning wake-up push."""
     now_et = datetime.now(ZoneInfo("America/New_York"))
-    # Skip weekends
-    if now_et.weekday() >= 5:
-        return
-    # Skip US market holidays (major ones)
-    _holidays = {
-        _date(2026, 1, 1), _date(2026, 1, 19), _date(2026, 2, 16),
-        _date(2026, 4, 3), _date(2026, 5, 25), _date(2026, 7, 3),
-        _date(2026, 9, 7), _date(2026, 11, 26), _date(2026, 12, 25),
-    }
-    if now_et.date() in _holidays:
+    if not _is_market_day(now_et):
         return
     send_fcm_to_all(
-        "Fortress Bot Online 🟢",
-        "Scheduled alerts: 8:30 AM daily briefing • Intraday scans every 30 min • Earnings play alerts active",
+        "Good Morning ☀️",
+        "Markets open in 1 hour. Fortress Bot is online and warming up.",
         {"tab": "plays"},
     )
-    print(f"[{now_et:%H:%M:%S}] Daily morning briefing sent.")
+    print(f"[{now_et:%H:%M:%S}] Good morning notification sent.")
+
+
+def send_pre_scan_ready():
+    """9:00 AM ET — Pre-scan 'getting things ready' push."""
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    if not _is_market_day(now_et):
+        return
+    send_fcm_to_all(
+        "Pre-Market Scan 🔍",
+        "30 minutes to open. Running pre-market analysis — getting plays ready.",
+        {"tab": "plays"},
+    )
+    print(f"[{now_et:%H:%M:%S}] Pre-scan notification sent.")
+
+
+def send_market_open_scanning():
+    """9:30 AM ET — Market open, scanning for plays."""
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    if not _is_market_day(now_et):
+        return
+    send_fcm_to_all(
+        "Markets Open — Scanning 🚀",
+        "Bell just rang. Fortress Bot is scanning for high-probability plays now.",
+        {"tab": "plays"},
+    )
+    # Kick off an immediate scan at market open
+    threading.Thread(target=scan_and_save, daemon=True).start()
+    print(f"[{now_et:%H:%M:%S}] Market open notification sent + scan triggered.")
+
+
+# Track which morning notifications have fired today to avoid duplicates
+_morning_fired: dict = {}
+
+
+def _morning_routine_tick():
+    """Called every minute. Fires morning notifications at the right ET times."""
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    today = now_et.date()
+    hm = (now_et.hour, now_et.minute)
+
+    # Reset fired flags each new day
+    if _morning_fired.get("date") != today:
+        _morning_fired.clear()
+        _morning_fired["date"] = today
+
+    if hm == (8, 30) and not _morning_fired.get("good_morning"):
+        _morning_fired["good_morning"] = True
+        send_good_morning()
+
+    elif hm == (9, 0) and not _morning_fired.get("pre_scan"):
+        _morning_fired["pre_scan"] = True
+        send_pre_scan_ready()
+
+    elif hm == (9, 30) and not _morning_fired.get("market_open"):
+        _morning_fired["market_open"] = True
+        send_market_open_scanning()
+
+    # Friday 8:30 — also fire weekly earnings briefing
+    if hm == (8, 30) and now_et.weekday() == 4 and not _morning_fired.get("earnings_briefing"):
+        _morning_fired["earnings_briefing"] = True
+        threading.Thread(target=send_weekly_earnings_briefing, daemon=True).start()
 
 
 def background_loop():
     sch.every(30).minutes.do(scan_and_save)
     sch.every(5).minutes.do(update_positions)
     sch.every(14).minutes.do(_keep_alive_ping)
-
-    # Daily 8:30 AM ET market-open briefing (Mon–Fri)
-    sch.every().monday.at("08:30").do(send_daily_morning_briefing)
-    sch.every().tuesday.at("08:30").do(send_daily_morning_briefing)
-    sch.every().wednesday.at("08:30").do(send_daily_morning_briefing)
-    sch.every().thursday.at("08:30").do(send_daily_morning_briefing)
-    sch.every().friday.at("08:30").do(send_daily_morning_briefing)
-
-    # Weekly earnings briefing — Fridays at 8:30 AM ET
-    sch.every().friday.at("08:30").do(send_weekly_earnings_briefing)
+    sch.every(1).minutes.do(_morning_routine_tick)
 
     # Run immediately on startup
     scan_and_save()
