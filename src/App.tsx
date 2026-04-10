@@ -1365,29 +1365,34 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   const loadWatchlist = () => {
-    apiFetch('/api/watchlist').then(d => setWatchlist(d.symbols || [])).catch(() => {});
+    apiFetch('/api/user-watchlist').then(d => setWatchlist(d.symbols || [])).catch(() => {});
   };
 
   useEffect(() => {
     if (section === 'watchlist') loadWatchlist();
   }, [section]);
 
+  const [wlError, setWlError] = useState('');
+
   const addSymbol = async () => {
     const sym = wlInput.trim().toUpperCase();
     if (!sym) return;
     setWlLoading(true);
+    setWlError('');
     try {
-      await apiFetch('/api/watchlist/add', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
+      const res = await apiFetch('/api/user-watchlist/add', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
       setWlInput('');
-      loadWatchlist();
-    } catch {}
+      setWatchlist(res.symbols || []);
+    } catch (e: any) {
+      setWlError(e?.message || 'Failed to add symbol');
+    }
     setWlLoading(false);
   };
 
   const removeSymbol = async (sym: string) => {
     try {
-      await apiFetch(`/api/watchlist/${sym}`, { method: 'DELETE' });
-      loadWatchlist();
+      const res = await apiFetch(`/api/user-watchlist/${sym}`, { method: 'DELETE' });
+      setWatchlist(res.symbols || []);
     } catch {}
   };
 
@@ -1669,13 +1674,13 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {section === 'watchlist' && (
           <>
-            <p className="text-xs text-zinc-500 mb-3">Symbols the scanner watches for plays. Changes take effect on the next scan cycle.</p>
+            <p className="text-xs text-zinc-500 mb-3">Add any ticker you want to track personally. Plays for these symbols will appear in your feed even if they're outside your tier's default list.</p>
 
             {/* Add symbol */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-1">
               <input
                 value={wlInput}
-                onChange={e => setWlInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
+                onChange={e => { setWlInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, '')); setWlError(''); }}
                 onKeyDown={e => e.key === 'Enter' && addSymbol()}
                 placeholder="e.g. AAPL"
                 maxLength={6}
@@ -1686,28 +1691,31 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                 disabled={wlLoading || !wlInput.trim()}
                 className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black font-bold rounded-xl text-sm transition-colors"
               >
-                Add
+                {wlLoading ? '…' : 'Add'}
               </button>
             </div>
+            {wlError && <p className="text-xs text-red-400 mb-2">{wlError}</p>}
 
             {/* Symbol chips */}
-            {watchlist.length === 0 ? (
-              <p className="text-center text-zinc-600 text-sm py-6">No symbols yet — add some above</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {watchlist.map(sym => (
-                  <div key={sym} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-700/60 rounded-full px-3 py-1.5">
-                    <span className="text-sm font-mono font-semibold text-white">{sym}</span>
-                    <button
-                      onClick={() => removeSymbol(sym)}
-                      className="text-zinc-500 hover:text-red-400 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="mt-3">
+              {watchlist.length === 0 ? (
+                <p className="text-center text-zinc-600 text-sm py-6">No symbols yet — add some above</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {watchlist.map(sym => (
+                    <div key={sym} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-700/60 rounded-full px-3 py-1.5">
+                      <span className="text-sm font-mono font-semibold text-white">{sym}</span>
+                      <button
+                        onClick={() => removeSymbol(sym)}
+                        className="text-zinc-500 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
 

@@ -219,3 +219,14 @@ def init_db():
         )
         """)
         conn.commit()
+
+        # Per-user personal watchlist — symbols each subscriber wants to track
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_watchlist (
+            api_key TEXT NOT NULL,
+            symbol  TEXT NOT NULL,
+            added_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (api_key, symbol)
+        )
+        """)
+        conn.commit()

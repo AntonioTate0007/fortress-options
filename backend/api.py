@@ -1241,8 +1241,10 @@ def blast_email(req: BlastRequest):
 
 @app.get("/api/plays")
 def get_plays(sub: dict = Depends(require_api_key)):
-    """Returns all plays found today, latest scan first."""
-    tier_symbols = TIERS.get(sub.get("tier", "basic"), TIERS["basic"])["symbols"]
+    """Returns all plays found today, latest scan first.
+    Includes plays for any symbol in the user's personal watchlist."""
+    tier_symbols = set(TIERS.get(sub.get("tier", "basic"), TIERS["basic"])["symbols"])
+    api_key = sub.get("api_key", "")
     with get_db() as conn:
         rows = conn.execute(
             """SELECT * FROM plays
@@ -1250,10 +1252,19 @@ def get_plays(sub: dict = Depends(require_api_key)):
                AND date(found_at) = date('now')
                ORDER BY found_at DESC, score DESC, net_credit DESC"""
         ).fetchall()
+        # Personal watchlist symbols for this user
+        uw_rows = conn.execute(
+            "SELECT symbol FROM user_watchlist WHERE api_key=?", (api_key,)
+        ).fetchall()
+    user_symbols = {r["symbol"] for r in uw_rows}
+    allowed = tier_symbols | user_symbols
     plays = [dict(r) for r in rows]
-    # Filter by tier
+    # Filter by tier + personal watchlist (elite/pro see everything in their tier)
     if sub.get("tier") != "elite" and sub.get("tier") != "pro":
-        plays = [p for p in plays if p["symbol"] in tier_symbols]
+        plays = [p for p in plays if p["symbol"] in allowed]
+    elif user_symbols:
+        # pro/elite already see their full tier; personal watchlist just adds more
+        plays = [p for p in plays if p["symbol"] in allowed]
     return plays
 
 
@@ -1307,6 +1318,54 @@ def api_watchlist_remove(symbol: str, sub: dict = Depends(require_api_key)):
         conn.execute("DELETE FROM watchlist WHERE symbol=?", (sym,))
         conn.commit()
     return {"symbols": get_watchlist()}
+
+
+# ─── Personal watchlist (per-user) ───────────────────────────────────────────
+
+@app.get("/api/user-watchlist")
+def api_user_watchlist_get(sub: dict = Depends(require_api_key)):
+    """Return the calling user's personal watchlist symbols."""
+    api_key = sub.get("api_key", "")
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT symbol FROM user_watchlist WHERE api_key=? ORDER BY symbol", (api_key,)
+        ).fetchall()
+    return {"symbols": [r["symbol"] for r in rows]}
+
+
+@app.post("/api/user-watchlist/add")
+def api_user_watchlist_add(item: WatchlistItem, sub: dict = Depends(require_api_key)):
+    """Add a symbol to the calling user's personal watchlist."""
+    sym = item.symbol.upper().strip()
+    if not sym or len(sym) > 10 or not sym.isalpha():
+        raise HTTPException(400, "Invalid symbol")
+    api_key = sub.get("api_key", "")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO user_watchlist (api_key, symbol) VALUES (?,?)",
+            (api_key, sym)
+        )
+        conn.commit()
+        rows = conn.execute(
+            "SELECT symbol FROM user_watchlist WHERE api_key=? ORDER BY symbol", (api_key,)
+        ).fetchall()
+    return {"symbols": [r["symbol"] for r in rows]}
+
+
+@app.delete("/api/user-watchlist/{symbol}")
+def api_user_watchlist_remove(symbol: str, sub: dict = Depends(require_api_key)):
+    """Remove a symbol from the calling user's personal watchlist."""
+    sym = symbol.upper().strip()
+    api_key = sub.get("api_key", "")
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM user_watchlist WHERE api_key=? AND symbol=?", (api_key, sym)
+        )
+        conn.commit()
+        rows = conn.execute(
+            "SELECT symbol FROM user_watchlist WHERE api_key=? ORDER BY symbol", (api_key,)
+        ).fetchall()
+    return {"symbols": [r["symbol"] for r in rows]}
 
 
 # ─── Stats endpoint ───────────────────────────────────────────────────────────
