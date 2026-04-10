@@ -1248,7 +1248,7 @@ def get_plays(sub: dict = Depends(require_api_key)):
             """SELECT * FROM plays
                WHERE expiration >= date('now')
                AND date(found_at) = date('now')
-               ORDER BY is_active DESC, score DESC, net_credit DESC"""
+               ORDER BY found_at DESC, score DESC, net_credit DESC"""
         ).fetchall()
     plays = [dict(r) for r in rows]
     # Filter by tier

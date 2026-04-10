@@ -1974,7 +1974,7 @@ function PlaysScreen({
         <div>
           <h2 className="text-sm font-bold text-white">Ranked Plays</h2>
           <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+            <p className="text-xs text-zinc-500">{plays.length} found · newest first</p>
             {lastScanLabel && (
               <span className="flex items-center gap-1 text-[10px] text-zinc-600">
                 <Clock className="w-2.5 h-2.5" />
@@ -3019,7 +3019,7 @@ function TabletPlaysPanel({
         <div>
           <h2 className="text-sm font-bold text-white">Ranked Plays</h2>
           <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-zinc-500">{plays.length} found · sorted by score</p>
+            <p className="text-xs text-zinc-500">{plays.length} found · newest first</p>
             {lastScanLabel && (
               <span className="flex items-center gap-1 text-[10px] text-zinc-600">
                 <Clock className="w-2.5 h-2.5" />
