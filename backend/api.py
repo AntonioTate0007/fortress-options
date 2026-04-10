@@ -876,8 +876,71 @@ def _morning_routine_tick():
         threading.Thread(target=send_weekly_earnings_briefing, daemon=True).start()
 
 
+def _prune_stale_plays():
+    """
+    Every 30 min during market hours: deactivate plays where the opportunity
+    has passed.  A play is considered stale if:
+      - Bull-put spread: underlying has dropped below the short (put) strike
+        (trade is now in-the-money — entry window closed).
+      - Bear-call spread: underlying has risen above the short (call) strike.
+    Also deactivates plays found more than 5.5 hours ago — well past any
+    intraday entry window.
+    """
+    import yfinance as yf
+    from zoneinfo import ZoneInfo
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    # Only run during market hours Mon–Fri 9:30–16:00 ET
+    if now_et.weekday() >= 5 or not (9 * 60 + 30 <= now_et.hour * 60 + now_et.minute <= 16 * 60):
+        return
+
+    with get_db() as conn:
+        plays = conn.execute(
+            "SELECT id, symbol, play_type, short_strike, found_at FROM plays WHERE is_active=1"
+        ).fetchall()
+
+    if not plays:
+        return
+
+    # Group by symbol to minimise yfinance calls
+    by_symbol: dict = {}
+    for p in plays:
+        by_symbol.setdefault(p["symbol"], []).append(p)
+
+    deactivated = 0
+    with get_db() as conn:
+        for symbol, sym_plays in by_symbol.items():
+            try:
+                price = float(yf.Ticker(symbol).fast_info["last_price"])
+            except Exception:
+                continue
+            for p in sym_plays:
+                stale = False
+                pt = (p["play_type"] or "").lower()
+                ss = p["short_strike"]
+                # Stale if in-the-money
+                if "call" in pt and ss and price > ss * 1.005:
+                    stale = True
+                elif "put" in pt and ss and price < ss * 0.995:
+                    stale = True
+                # Stale if play is more than 5.5 hours old
+                try:
+                    found = datetime.fromisoformat(p["found_at"].replace("Z", "+00:00"))
+                    age_hours = (datetime.now(found.tzinfo or None) - found).total_seconds() / 3600
+                    if age_hours > 5.5:
+                        stale = True
+                except Exception:
+                    pass
+                if stale:
+                    conn.execute("UPDATE plays SET is_active=-1 WHERE id=?", (p["id"],))
+                    deactivated += 1
+        if deactivated:
+            conn.commit()
+            print(f"[Prune] Deactivated {deactivated} stale play(s)")
+
+
 def background_loop():
     sch.every(30).minutes.do(scan_and_save)
+    sch.every(30).minutes.do(_prune_stale_plays)
     sch.every(5).minutes.do(update_positions)
     sch.every(14).minutes.do(_keep_alive_ping)
     sch.every(1).minutes.do(_morning_routine_tick)
@@ -1250,6 +1313,7 @@ def get_plays(sub: dict = Depends(require_api_key)):
             """SELECT * FROM plays
                WHERE expiration >= date('now')
                AND date(found_at) = date('now')
+               AND is_active >= 0
                ORDER BY found_at DESC, score DESC, net_credit DESC"""
         ).fetchall()
         # Personal watchlist symbols for this user
