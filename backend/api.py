@@ -764,12 +764,17 @@ def send_weekly_earnings_briefing():
 def _keep_alive_ping():
     """Self-ping every 14 minutes to prevent Render free-tier cold starts."""
     import urllib.request
+    # Try public URL first, fall back to localhost
+    public_url = os.getenv("RENDER_EXTERNAL_URL", "")
     port = int(os.getenv("PORT", 8001))
-    url = f"http://localhost:{port}/api/status"
-    try:
-        urllib.request.urlopen(url, timeout=5)
-    except Exception:
-        pass
+    urls = [f"{public_url}/api/status"] if public_url else []
+    urls.append(f"http://localhost:{port}/api/status")
+    for url in urls:
+        try:
+            urllib.request.urlopen(url, timeout=5)
+            break
+        except Exception:
+            pass
 
 
 _MARKET_HOLIDAYS_2026 = {
@@ -838,30 +843,35 @@ _morning_fired: dict = {}
 
 
 def _morning_routine_tick():
-    """Called every minute. Fires morning notifications at the right ET times."""
+    """Called every minute. Fires morning notifications at the right ET times.
+    Uses a 5-minute window per event so a slow/delayed tick doesn't miss the slot."""
     now_et = datetime.now(ZoneInfo("America/New_York"))
     today = now_et.date()
-    hm = (now_et.hour, now_et.minute)
+    total_minutes = now_et.hour * 60 + now_et.minute
 
     # Reset fired flags each new day
     if _morning_fired.get("date") != today:
         _morning_fired.clear()
         _morning_fired["date"] = today
 
-    if hm == (8, 30) and not _morning_fired.get("good_morning"):
+    def _in_window(h, m):
+        target = h * 60 + m
+        return target <= total_minutes < target + 5
+
+    if _in_window(8, 30) and not _morning_fired.get("good_morning"):
         _morning_fired["good_morning"] = True
         send_good_morning()
 
-    elif hm == (9, 0) and not _morning_fired.get("pre_scan"):
+    if _in_window(9, 0) and not _morning_fired.get("pre_scan"):
         _morning_fired["pre_scan"] = True
         send_pre_scan_ready()
 
-    elif hm == (9, 30) and not _morning_fired.get("market_open"):
+    if _in_window(9, 30) and not _morning_fired.get("market_open"):
         _morning_fired["market_open"] = True
         send_market_open_scanning()
 
     # Friday 8:30 — also fire weekly earnings briefing
-    if hm == (8, 30) and now_et.weekday() == 4 and not _morning_fired.get("earnings_briefing"):
+    if _in_window(8, 30) and now_et.weekday() == 4 and not _morning_fired.get("earnings_briefing"):
         _morning_fired["earnings_briefing"] = True
         threading.Thread(target=send_weekly_earnings_briefing, daemon=True).start()
 
