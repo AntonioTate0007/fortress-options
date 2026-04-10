@@ -60,6 +60,11 @@ class _PgWrapper:
         pg_sql = pg_sql.replace("datetime('now')", "NOW()")
         # Translate SQLite date('now') → CURRENT_DATE
         pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
+        # Translate INSERT OR IGNORE INTO → INSERT INTO ... ON CONFLICT DO NOTHING
+        import re
+        pg_sql = re.sub(r'(?i)INSERT\s+OR\s+IGNORE\s+INTO\s+(\w+)', r'INSERT INTO \1', pg_sql)
+        if re.search(r'(?i)^insert into', pg_sql.strip()) and 'ON CONFLICT' not in pg_sql.upper():
+            pg_sql = pg_sql.rstrip(';') + ' ON CONFLICT DO NOTHING'
         cur = self._conn.cursor()
         cur.execute(pg_sql, params)
         return _PgCursor(cur)
