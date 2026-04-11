@@ -109,11 +109,16 @@ function getApiKey(): string {
 async function apiFetch(path: string, opts?: RequestInit) {
   const key = getApiKey();
   const headers: Record<string, string> = {
+    ...(opts?.body ? { 'Content-Type': 'application/json' } : {}),
     ...(opts?.headers as Record<string, string> || {}),
     ...(key ? { 'X-API-Key': key } : {}),
   };
   const res = await fetch(`${getBase()}${path}`, { ...opts, headers });
-  if (!res.ok) throw new Error(`${res.status}`);
+  if (!res.ok) {
+    let msg = `${res.status}`;
+    try { const j = await res.json(); msg = j?.detail || j?.message || msg; } catch {}
+    throw new Error(msg);
+  }
   return res.json();
 }
 

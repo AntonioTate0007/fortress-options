@@ -1388,12 +1388,23 @@ def api_watchlist_remove(symbol: str, sub: dict = Depends(require_api_key)):
 
 @app.get("/api/user-watchlist")
 def api_user_watchlist_get(sub: dict = Depends(require_api_key)):
-    """Return the calling user's personal watchlist symbols."""
+    """Return the calling user's personal watchlist symbols, seeding defaults on first use."""
     api_key = sub.get("api_key", "")
     with get_db() as conn:
         rows = conn.execute(
             "SELECT symbol FROM user_watchlist WHERE api_key=? ORDER BY symbol", (api_key,)
         ).fetchall()
+        if not rows:
+            # First time — seed with the default watchlist
+            for sym in DEFAULT_WATCHLIST:
+                conn.execute(
+                    "INSERT OR IGNORE INTO user_watchlist (api_key, symbol) VALUES (?,?)",
+                    (api_key, sym)
+                )
+            conn.commit()
+            rows = conn.execute(
+                "SELECT symbol FROM user_watchlist WHERE api_key=? ORDER BY symbol", (api_key,)
+            ).fetchall()
     return {"symbols": [r["symbol"] for r in rows]}
 
 
