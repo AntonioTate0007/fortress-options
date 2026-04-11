@@ -1370,7 +1370,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   const loadWatchlist = () => {
-    apiFetch('/api/user-watchlist').then(d => setWatchlist(d.symbols || [])).catch(() => {});
+    apiFetch('/api/watchlist').then(d => setWatchlist(d.symbols || [])).catch(() => {});
   };
 
   useEffect(() => {
@@ -1385,7 +1385,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
     setWlLoading(true);
     setWlError('');
     try {
-      const res = await apiFetch('/api/user-watchlist', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
+      const res = await apiFetch('/api/watchlist/add', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
       setWlInput('');
       setWatchlist(res.symbols || []);
     } catch (e: any) {
@@ -1396,7 +1396,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
   const removeSymbol = async (sym: string) => {
     try {
-      const res = await apiFetch(`/api/user-watchlist/${sym}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/watchlist/${sym}`, { method: 'DELETE' });
       setWatchlist(res.symbols || []);
     } catch {}
   };
