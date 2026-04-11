@@ -164,7 +164,7 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.2.3';
+const CURRENT_VERSION = '2.2.5';
 
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
