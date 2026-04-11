@@ -1385,7 +1385,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
     setWlLoading(true);
     setWlError('');
     try {
-      const res = await apiFetch('/api/user-watchlist/add', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
+      const res = await apiFetch('/api/user-watchlist', { method: 'POST', body: JSON.stringify({ symbol: sym }) });
       setWlInput('');
       setWatchlist(res.symbols || []);
     } catch (e: any) {

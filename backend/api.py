@@ -1408,7 +1408,7 @@ def api_user_watchlist_get(sub: dict = Depends(require_api_key)):
     return {"symbols": [r["symbol"] for r in rows]}
 
 
-@app.post("/api/user-watchlist/add")
+@app.post("/api/user-watchlist")
 def api_user_watchlist_add(item: WatchlistItem, sub: dict = Depends(require_api_key)):
     """Add a symbol to the calling user's personal watchlist."""
     sym = item.symbol.upper().strip()
