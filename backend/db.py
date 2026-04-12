@@ -54,20 +54,28 @@ class _PgWrapper:
         self._conn = conn
 
     def execute(self, sql, params=()):
-        # Translate SQLite ? placeholders → Postgres %s
-        pg_sql = sql.replace("?", "%s")
-        # Translate SQLite datetime('now') → NOW()
-        pg_sql = pg_sql.replace("datetime('now')", "NOW()")
-        # Translate SQLite date('now') → CURRENT_DATE
-        pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
-        # Translate INSERT OR IGNORE INTO → INSERT INTO ... ON CONFLICT DO NOTHING
         import re
+        pg_sql = sql.replace("?", "%s")
+        pg_sql = pg_sql.replace("datetime('now')", "NOW()")
+        pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
+        pg_sql = pg_sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
         pg_sql = re.sub(r'(?i)INSERT\s+OR\s+IGNORE\s+INTO\s+(\w+)', r'INSERT INTO \1', pg_sql)
-        if re.search(r'(?i)^insert into', pg_sql.strip()) and 'ON CONFLICT' not in pg_sql.upper():
-            pg_sql = pg_sql.rstrip(';') + ' ON CONFLICT DO NOTHING'
+
+        is_insert = bool(re.search(r'(?i)^\s*insert\s+into', pg_sql))
+        if is_insert and 'ON CONFLICT' not in pg_sql.upper():
+            pg_sql = pg_sql.rstrip().rstrip(';') + ' ON CONFLICT DO NOTHING'
+        if is_insert and 'RETURNING' not in pg_sql.upper():
+            pg_sql = pg_sql.rstrip() + ' RETURNING *'
+
         cur = self._conn.cursor()
         cur.execute(pg_sql, params)
-        return _PgCursor(cur)
+
+        last_id = None
+        if is_insert:
+            row = cur.fetchone()
+            if row:
+                last_id = row.get('id')
+        return _PgCursor(cur, last_id)
 
     def executescript(self, sql):
         # executescript runs DDL; translate and run each statement
@@ -92,8 +100,9 @@ class _PgWrapper:
 
 class _PgCursor:
     """Wraps psycopg2 RealDictCursor to mimic sqlite3.Cursor."""
-    def __init__(self, cur):
+    def __init__(self, cur, last_id=None):
         self._cur = cur
+        self._last_id = last_id
 
     def fetchone(self):
         row = self._cur.fetchone()
@@ -108,8 +117,7 @@ class _PgCursor:
 
     @property
     def lastrowid(self):
-        # psycopg2 doesn't expose lastrowid — use RETURNING id if needed
-        return None
+        return self._last_id
 
 
 def init_db():
