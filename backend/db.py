@@ -83,19 +83,24 @@ class _PgWrapper:
         pg_sql = pg_sql.replace("datetime('now')", "NOW()")
         pg_sql = pg_sql.replace("date('now')", "CURRENT_DATE")
         pg_sql = pg_sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-        # Postgres doesn't support IF NOT EXISTS for columns — migrations handle it separately
         cur = self._conn.cursor()
         for stmt in pg_sql.split(";"):
             stmt = stmt.strip()
             if stmt:
                 try:
+                    cur.execute("SAVEPOINT _sp")
                     cur.execute(stmt)
+                    cur.execute("RELEASE SAVEPOINT _sp")
                 except Exception as e:
+                    cur.execute("ROLLBACK TO SAVEPOINT _sp")
                     if "already exists" not in str(e).lower():
                         raise
 
     def commit(self):
         self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
 
 
 class _PgCursor:
@@ -210,14 +215,14 @@ def init_db():
             conn.execute("ALTER TABLE subscribers ADD COLUMN telegram_chat_id TEXT")
             conn.commit()
         except Exception:
-            pass  # Column already exists
+            conn.rollback()  # Reset PostgreSQL aborted-transaction state
 
         # Migration: add ai_analysis column to plays
         try:
             conn.execute("ALTER TABLE plays ADD COLUMN ai_analysis TEXT")
             conn.commit()
         except Exception:
-            pass
+            conn.rollback()
 
         # Watchlist table — user-editable list of symbols to scan
         conn.execute("""
