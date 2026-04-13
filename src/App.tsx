@@ -3369,6 +3369,7 @@ export default function App() {
       body: a.message,
       schedule: { at: new Date(Date.now() + i * 300) },
       sound: 'fortress_alert',
+      channelId: 'fortress_alerts',
       smallIcon: 'ic_stat_icon_config_sample',
       iconColor: a.alert_type === 'profit' ? '#00c896' : '#ef4444',
     }));
@@ -3400,6 +3401,7 @@ export default function App() {
       body: `$${p.short_strike}/$${p.long_strike} ${p.play_type === 'bear_call' ? 'Call Spread' : 'Put Spread'} · $${p.net_credit.toFixed(2)} credit · ${p.buffer_pct.toFixed(1)}% buffer`,
       schedule: { at: new Date(Date.now() + i * 400) },
       sound: 'fortress_alert',
+      channelId: 'fortress_plays',
       smallIcon: 'ic_stat_icon_config_sample',
       iconColor: p.score >= 8 ? '#10b981' : '#f59e0b',
       extra: { playId: p.id },
