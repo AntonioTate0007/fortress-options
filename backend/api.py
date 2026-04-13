@@ -1312,7 +1312,7 @@ def get_plays(sub: dict = Depends(require_api_key)):
         rows = conn.execute(
             """SELECT * FROM plays
                WHERE expiration >= date('now')
-               AND date(found_at) = date('now')
+               AND found_at >= datetime('now', '-24 hours')
                AND is_active >= 0
                ORDER BY found_at DESC, score DESC, net_credit DESC"""
         ).fetchall()

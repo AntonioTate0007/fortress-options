@@ -168,9 +168,9 @@ const CURRENT_VERSION = '2.2.5';
 
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
-  const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
+  const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 1024);
   useEffect(() => {
-    const update = () => setIsTablet(window.innerWidth >= 768);
+    const update = () => setIsTablet(window.innerWidth >= 1024);
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);
@@ -3530,7 +3530,7 @@ export default function App() {
 
   return (
     <ThemeContext.Provider value={{ dark, toggle: toggleTheme }}>
-    <div className={`h-screen flex flex-col bg-[#0A0A0B] text-zinc-100 overflow-hidden select-none${dark ? '' : ' light-mode'}`}>
+    <div className={`flex flex-col bg-[#0A0A0B] text-zinc-100 overflow-hidden select-none${dark ? '' : ' light-mode'}`} style={{height:'100dvh',paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-[#0D0D0E] border-b border-zinc-800/80">
         <div className="flex items-center gap-3">
