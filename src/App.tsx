@@ -3320,7 +3320,7 @@ export default function App() {
       }).catch(() => {});
     });
 
-    // Handle notification tap (app in background or killed)
+    // Handle notification tap (app in background or killed) — FCM
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       const data = action.notification.data as Record<string, string> | undefined;
       if (data?.tab === 'plays') {
@@ -3331,10 +3331,26 @@ export default function App() {
       }
     });
 
+    // Handle LOCAL notification tap (plays / alerts) — switch to plays tab + refresh
+    LocalNotifications.addListener('localNotificationActionPerformed', () => {
+      setTab('plays');
+      loadAll();
+    });
+
+    // Refresh data whenever app comes back to foreground
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadAll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       PushNotifications.removeAllListeners();
+      LocalNotifications.removeAllListeners();
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [loadAll]);
 
   useEffect(() => {
     // Fire a push notification for each new unacknowledged alert
