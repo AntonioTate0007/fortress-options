@@ -19,8 +19,13 @@ if _USE_POSTGRES:
 
 
 class _PgRow(dict):
-    """Dict subclass that mimics sqlite3.Row's [] access by column name."""
+    """Mimics sqlite3.Row — supports both row['col'] and row[0] indexing.
+    Why: psycopg2 RealDictCursor rows are dicts; legacy SQLite-style code in
+    the API uses .fetchone()[0] for COUNT/aggregate queries, which raises
+    KeyError on a plain dict."""
     def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
         return super().__getitem__(key)
     def keys(self):
         return super().keys()
@@ -111,11 +116,11 @@ class _PgCursor:
 
     def fetchone(self):
         row = self._cur.fetchone()
-        return dict(row) if row else None
+        return _PgRow(row) if row else None
 
     def fetchall(self):
         rows = self._cur.fetchall()
-        return [dict(r) for r in rows]
+        return [_PgRow(r) for r in rows]
 
     def __getitem__(self, key):
         return self._cur[key]
