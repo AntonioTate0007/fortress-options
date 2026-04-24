@@ -32,14 +32,14 @@ def get_version_name():
     return "unknown"
 
 def deploy(track="internal"):
-    print(f"\n🚀 Deploying to Google Play [{track} track]")
+    print(f"\n[DEPLOY] Deploying to Google Play [{track} track]")
     print(f"   AAB: {AAB_PATH}")
 
     if not os.path.exists(KEY_FILE):
-        print(f"❌ Service account key not found: {KEY_FILE}")
+        print(f"[ERROR] Service account key not found: {KEY_FILE}")
         sys.exit(1)
     if not os.path.exists(AAB_PATH):
-        print(f"❌ AAB not found: {AAB_PATH}")
+        print(f"[ERROR] AAB not found: {AAB_PATH}")
         print("   Run: cd android && ./gradlew bundleRelease")
         sys.exit(1)
 
@@ -64,7 +64,7 @@ def deploy(track="internal"):
         ).execute()
         version_code = bundle["versionCode"]
         version_name = get_version_name()
-        print(f"   ✓ Uploaded versionCode={version_code} versionName={version_name}")
+        print(f"   OK Uploaded versionCode={version_code} versionName={version_name}")
 
         # 3. Create release on track
         release_notes = f"v{version_name} — Morning routine notifications · Key recovery · Postgres persistence · Google Play distribution"
@@ -83,12 +83,41 @@ def deploy(track="internal"):
             track=track,
             body=track_body
         ).execute()
-        print(f"   ✓ Release set on {track} track")
+        print(f"   OK Release set on {track} track")
 
-        # 4. Commit edit
+        # 4. Upload store listing images (best-effort, won't fail the deploy)
+        WEBSITE = os.path.join(os.path.dirname(__file__), "website")
+        IMAGES = [
+            ("icon",             os.path.join(WEBSITE, "icon-512.png")),
+            ("featureGraphic",   os.path.join(WEBSITE, "feature-graphic.png")),
+            ("phoneScreenshots", os.path.join(WEBSITE, "screenshots", "screenshot1.png")),
+            ("phoneScreenshots", os.path.join(WEBSITE, "screenshots", "screenshot2.png")),
+            ("phoneScreenshots", os.path.join(WEBSITE, "screenshots", "screenshot3.png")),
+            ("phoneScreenshots", os.path.join(WEBSITE, "screenshots", "screenshot4.png")),
+            ("phoneScreenshots", os.path.join(WEBSITE, "screenshots", "screenshot5.png")),
+        ]
+        try:
+            edits.images().deleteall(packageName=PACKAGE_NAME, editId=edit_id,
+                                     language="en-US", imageType="phoneScreenshots").execute()
+        except Exception:
+            pass
+        for img_type, img_path in IMAGES:
+            if not os.path.exists(img_path):
+                continue
+            try:
+                edits.images().upload(
+                    packageName=PACKAGE_NAME, editId=edit_id,
+                    language="en-US", imageType=img_type,
+                    media_body=MediaFileUpload(img_path, mimetype="image/png", resumable=False)
+                ).execute()
+                print(f"   OK Image: {img_type} ({os.path.basename(img_path)})")
+            except Exception as e:
+                print(f"   ! Image skip {img_type}: {e}")
+
+        # 5. Commit edit
         print("   Committing edit...")
         result = edits.commit(packageName=PACKAGE_NAME, editId=edit_id).execute()
-        print(f"\n✅ Deployed! Edit committed: {result.get('id')}")
+        print(f"\n[SUCCESS] Deployed! Edit committed: {result.get('id')}")
         print(f"   Track: {track}")
         print(f"   Version: {version_name} ({version_code})")
         print(f"   Play Console: https://play.google.com/console/developers/8631127217260026572/app/4973176502312998250/tracks/{track}-testing")
@@ -99,10 +128,10 @@ def deploy(track="internal"):
             edits.delete(packageName=PACKAGE_NAME, editId=edit_id).execute()
         except:
             pass
-        print(f"\n❌ Deploy failed: {e}")
+        print(f"\n[ERROR] Deploy failed: {e}")
         if "401" in str(e) or "403" in str(e):
-            print("\n   ⚠️  Permission error. Complete Play Console setup:")
-            print("   1. Go to Play Console → Users and permissions")
+            print("\n   [WARN]  Permission error. Complete Play Console setup:")
+            print("   1. Go to Play Console > Users and permissions")
             print("   2. Add play-store-publisher@fortress-options.iam.gserviceaccount.com")
             print("   3. Grant: Release to production + Release apps to testing tracks")
         sys.exit(1)

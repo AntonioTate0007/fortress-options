@@ -1,168 +1,173 @@
-import yfinance as yf
-import pandas as pd
+"""
+Standalone Fortress Options scanner — the original prototype from rules.md.
+The production scanner lives in backend/api.py; this file is kept as a simple
+script you can run on a desktop or VPS without FastAPI.
+
+  python scanner.py   # runs once now, then every day at 10:00 AM (local time)
+
+Env vars (see .env.example):
+  TELEGRAM_BOT_TOKEN
+  TELEGRAM_CHAT_ID
+"""
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timedelta
+
+import pandas as pd  # noqa: F401  (yfinance pulls it in; keep explicit for clarity)
 import requests
 import schedule
-import time
-import os
-from datetime import datetime, timedelta
+import yfinance as yf
 from dotenv import load_dotenv
 
-# Load environment variables
+# Make the shared earnings module importable regardless of CWD
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+from earnings import has_earnings_in_window  # noqa: E402
+
 load_dotenv()
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger("scanner")
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Tickers to monitor
-WATCHLIST = ['SPY', 'QQQ', 'AAPL', 'AMZN', 'MSFT', 'GOOGL']
+WATCHLIST = ["SPY", "QQQ", "AAPL", "AMZN", "MSFT", "GOOGL"]
+MIN_DTE = 7
+MAX_DTE = 14
+OTM_BUFFER_MIN = 0.05   # 5% below price
+OTM_BUFFER_MAX = 0.08   # 8% below price
+PREMIUM_MIN = 0.35
+PREMIUM_MAX = 0.80
+SPREAD_WIDTH = 5.0
 
-def send_telegram_alert(message):
-    """Sends a trade alert to the designated Telegram chat."""
+
+def send_telegram_alert(message: str) -> None:
+    """Send a trade alert to the designated Telegram chat."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram credentials missing in .env file. Could not send alert.")
-        print(message)
+        log.warning("Telegram credentials missing in .env — printing instead:\n%s", message)
         return
-        
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        print("Success: Telegram alert sent.")
-    except Exception as e:
-        print(f"Failed to send Telegram alert: {e}")
 
-def has_earnings_before_expiration(ticker_obj, expiration_date_str):
-    """
-    Check if the stock has an upcoming earnings report before the expiration date.
-    Returns True if an earnings date is found before expiration.
-    """
-    return False # yfinance earnings data can be unreliable for free APIs. Returning false for now.
-    
-def scan_ticker(symbol):
-    """Scans a single ticker for high-probability put credit spreads."""
-    print(f"Scanning {symbol}...")
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        log.info("Telegram alert sent.")
+    except Exception as e:
+        log.error("Failed to send Telegram alert: %s", e)
+
+
+def scan_ticker(symbol: str) -> None:
+    """Scan a single ticker for high-probability put credit spreads."""
+    log.info("Scanning %s...", symbol)
     try:
         ticker = yf.Ticker(symbol)
-        
-        # Get current price
-        todays_data = ticker.history(period='1d')
+
+        todays_data = ticker.history(period="1d")
         if todays_data.empty:
-            print(f"Could not fetch price for {symbol}")
+            log.warning("No price data for %s", symbol)
             return
-            
-        current_price = todays_data['Close'].iloc[0]
-        
-        # Get available expiration dates
-        options = ticker.options
-        if not options:
+        current_price = float(todays_data["Close"].iloc[0])
+
+        expirations = ticker.options or []
+        if not expirations:
             return
-            
+
         today = datetime.now()
-        target_min_date = today + timedelta(days=7)
-        target_max_date = today + timedelta(days=14)
-        
-        # Filter for expirations 7-14 days out
+        target_min = today + timedelta(days=MIN_DTE)
+        target_max = today + timedelta(days=MAX_DTE)
+
         valid_expirations = []
-        for exp in options:
-            exp_date = datetime.strptime(exp, '%Y-%m-%d')
-            if target_min_date <= exp_date <= target_max_date:
+        for exp in expirations:
+            exp_date = datetime.strptime(exp, "%Y-%m-%d")
+            if target_min <= exp_date <= target_max:
                 valid_expirations.append((exp, exp_date))
-                
+
         if not valid_expirations:
             return
-            
+
+        # Earnings filter — shared logic. ETFs (SPY/QQQ) bypass automatically.
+        has_earn, earn_date = has_earnings_in_window(symbol, MAX_DTE)
+        if has_earn:
+            log.info("  %s: earnings on %s — skipping", symbol, earn_date)
+            return
+
         for exp_str, exp_date in valid_expirations:
             dte = (exp_date - today).days
-            
-            # Simplified Earnings filter check (usually skip for ETFs)
-            if symbol not in ['SPY', 'QQQ']:
-                # Note: yf earnings dates are often missing in free tier. In production, 
-                # you might want to use a more reliable earnings calendar API here.
-                pass
-            
-            # Get the option chain for this expiration
+
             chain = ticker.option_chain(exp_str)
             puts = chain.puts
-            
-            # Drop illiquid options (no bid/ask)
-            puts = puts[(puts['bid'] > 0) & (puts['ask'] > 0)]
-            
+            puts = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
             if puts.empty:
                 continue
 
-            # Identify valid short put strikes (5% to 8% below current price)
-            min_strike = current_price * 0.92  # 8% below
-            max_strike = current_price * 0.95  # 5% below
-            
-            # Filter puts in this safety zone
-            candidate_short_puts = puts[(puts['strike'] >= min_strike) & (puts['strike'] <= max_strike)]
-            
-            for _, short_put in candidate_short_puts.iterrows():
-                short_strike = short_put['strike']
-                short_bid = short_put['bid']
-                
-                # The long put strike must be exactly $5 below the short strike
-                long_strike = short_strike - 5.0
-                
-                # Find the corresponding long put
-                long_put_match = puts[puts['strike'] == long_strike]
-                
-                if long_put_match.empty:
-                    continue
-                    
-                long_put = long_put_match.iloc[0]
-                long_ask = long_put['ask']
-                
-                # Calculate estimated credit
-                # We sell at the bid, buy at the ask to be conservative with fills
-                est_credit = short_bid - long_ask
-                
-                # Check if premium meets our criteria ($0.35 to $0.80)
-                if 0.35 <= est_credit <= 0.80:
-                    buffer_pct = ((current_price - short_strike) / current_price) * 100
-                    buffer_amt = current_price - short_strike
-                    max_risk = 5.0 - est_credit
-                    
-                    message = (
-                        f"🏰 **FORTRESS PLAY FOUND** 🏰\n"
-                        f"Ticker: ${symbol}\n"
-                        f"Current Price: ${current_price:.2f}\n"
-                        f"Expiration: {exp_date.strftime('%B %d')} ({dte} DTE)\n"
-                        f"🟢 **SELL:** ${short_strike} Put\n"
-                        f"🔴 **BUY:** ${long_strike} Put\n"
-                        f"Buffer: ${buffer_amt:.2f} ({buffer_pct:.1f}% out of the money)\n"
-                        f"Estimated Credit: ${est_credit:.2f} (${est_credit * 100:.0f} cash)\n"
-                        f"Max Risk: ${max_risk * 100:.0f}"
-                    )
-                    
-                    send_telegram_alert(message)
-                    
-    except Exception as e:
-        print(f"Error scanning {symbol}: {e}")
+            min_strike = current_price * (1 - OTM_BUFFER_MAX)  # 8% below
+            max_strike = current_price * (1 - OTM_BUFFER_MIN)  # 5% below
 
-def run_scanner():
+            candidate_shorts = puts[
+                (puts["strike"] >= min_strike) & (puts["strike"] <= max_strike)
+            ]
+
+            for _, short_put in candidate_shorts.iterrows():
+                short_strike = float(short_put["strike"])
+                long_strike = short_strike - SPREAD_WIDTH
+
+                long_match = puts[puts["strike"] == long_strike]
+                if long_match.empty:
+                    continue
+                long_put = long_match.iloc[0]
+
+                # Conservative fill assumption: sell at bid, buy at ask
+                est_credit = float(short_put["bid"]) - float(long_put["ask"])
+
+                if not (PREMIUM_MIN <= est_credit <= PREMIUM_MAX):
+                    continue
+
+                buffer_pct = ((current_price - short_strike) / current_price) * 100
+                buffer_amt = current_price - short_strike
+                max_risk = SPREAD_WIDTH - est_credit
+
+                message = (
+                    f"🏰 **FORTRESS PLAY FOUND** 🏰\n"
+                    f"Ticker: ${symbol}\n"
+                    f"Current Price: ${current_price:.2f}\n"
+                    f"Expiration: {exp_date.strftime('%B %d')} ({dte} DTE)\n"
+                    f"🟢 **SELL:** ${short_strike:.0f} Put\n"
+                    f"🔴 **BUY:** ${long_strike:.0f} Put\n"
+                    f"Buffer: ${buffer_amt:.2f} ({buffer_pct:.1f}% out of the money)\n"
+                    f"Estimated Credit: ${est_credit:.2f} (${est_credit * 100:.0f} cash)\n"
+                    f"Max Risk: ${max_risk * 100:.0f}"
+                )
+                send_telegram_alert(message)
+
+    except Exception as e:
+        log.exception("Error scanning %s: %s", symbol, e)
+
+
+def run_scanner() -> None:
     """Main scanning routine."""
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting Fortress Options Scan...")
+    log.info("[%s] Starting Fortress Options scan…", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     for symbol in WATCHLIST:
         scan_ticker(symbol)
-    print("Scan complete.")
+    log.info("Scan complete.")
+
 
 if __name__ == "__main__":
-    # Run once immediately upon starting
     run_scanner()
-    
-    # Schedule the scan daily at 10:00 AM EST
-    # Note: If running on a server outside EST, you'll need to adjust the time string 
-    # to your server's local equivalent, or use the `pytz` timezone library.
+
+    # Schedule daily 10:00 (local server time — use pytz / cron for strict ET)
     schedule.every().day.at("10:00").do(run_scanner)
-    
-    print("Scanner scheduler running. Press Ctrl+C to exit.")
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+
+    log.info("Scanner scheduler running. Ctrl+C to exit.")
+    try:
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
+    except KeyboardInterrupt:
+        log.info("Scanner stopped by user.")

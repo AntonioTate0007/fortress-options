@@ -66,6 +66,25 @@ def main():
             img = result.get("image", {})
             print(f"OK (id={img.get('id','?')[:12]}...)")
 
+        # Add a track reference to existing versionCode so commit has release content
+        print("  Setting track reference (versionCode 23)...")
+        try:
+            edits.tracks().update(
+                packageName=PACKAGE_NAME,
+                editId=edit_id,
+                track="internal",
+                body={
+                    "releases": [{
+                        "name": "v2.2.3",
+                        "versionCodes": ["24"],
+                        "status": "draft"
+                    }]
+                }
+            ).execute()
+            print("  Track reference set.")
+        except Exception as e:
+            print(f"  (track reference failed, proceeding anyway: {e})")
+
         print("  Committing edit...")
         edits.commit(packageName=PACKAGE_NAME, editId=edit_id).execute()
         print("\nAll graphics uploaded successfully!")

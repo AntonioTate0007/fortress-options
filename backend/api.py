@@ -6,6 +6,7 @@ the React app as static files.
 Start: python -m uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 """
 import json
+import logging
 import os
 import sys
 import threading
@@ -14,6 +15,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
+
+# Configure logging once at module load. Level is overridable via LOG_LEVEL env.
+# We keep the format short so it interleaves cleanly with the existing print()
+# calls (which we leave in place to avoid a giant rewrite).
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+log = logging.getLogger("fortress.api")
 
 import stripe
 import schedule as sch
@@ -60,6 +70,11 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 from db import get_db, init_db
 from ranker import get_exit_recommendation, score_play
+from earnings import (
+    has_earnings_in_window,
+    get_upcoming_earnings,
+    is_etf as _is_etf,
+)
 import anthropic as _anthropic
 from auth import (require_api_key, optional_api_key, create_subscriber,
                   cancel_subscriber, send_api_key_email, create_checkout_session,
@@ -154,8 +169,8 @@ Keep it under 200 words. Be direct, confident, like a sharp options trader brief
         )
         return msg.content[0].text.strip()
     except Exception as e:
-        print(f"[AI] Analysis failed for {play.get('symbol')}: {e}")
-        # Fallback: mechanical summary
+        log.warning("AI analysis fallback for %s: %s", play.get("symbol"), e)
+        # Fallback: mechanical summary so the play card always renders something useful.
         return (
             f"**The Opportunity**\n${play['short_strike']:.0f}/${play['long_strike']:.0f} put spread "
             f"collects ${play['net_credit']:.2f} credit with a {play['buffer_pct']:.1f}% safety buffer. "
@@ -279,21 +294,14 @@ def scan_and_save(force: bool = False):
                     continue
 
                 # ── Earnings check — skip if earnings land within the DTE window ──
-                has_earnings = False
-                try:
-                    earn_df = ticker.get_earnings_dates(limit=4)
-                    if earn_df is not None and not earn_df.empty:
-                        today_date = today.date()
-                        for idx in earn_df.index:
-                            edate = idx.date() if hasattr(idx, "date") else idx
-                            days_to_earn = (edate - today_date).days
-                            if 0 <= days_to_earn <= MAX_DTE:
-                                print(f"  {symbol}: earnings in {days_to_earn}d — skipping scan")
-                                has_earnings = True
-                                break
-                except Exception:
-                    pass
+                # ETFs bypass (no earnings reports). Errors are logged but not fatal:
+                # a missing earnings feed shouldn't block the whole scanner.
+                has_earnings, earn_date = has_earnings_in_window(
+                    symbol, MAX_DTE, session=_yf_session
+                )
                 if has_earnings:
+                    days_to_earn = (earn_date - today.date()).days
+                    print(f"  {symbol}: earnings on {earn_date} ({days_to_earn}d) — skipping scan")
                     time.sleep(0.5)
                     continue
 
@@ -643,26 +651,43 @@ def send_weekly_earnings_briefing():
     print(f"[{datetime.now():%H:%M:%S}] Running weekly earnings briefing scan…")
 
     # ── Find the best earnings candidate in the watchlist ─────────────────────
+    # Uses the cached earnings lookup so we don't refetch on every call and so
+    # ETFs (SPY/QQQ/etc.) are cleanly excluded.
     best = None          # (symbol, date, market_cap, price, beta, timing)
-    for symbol in WATCHLIST:
+    for symbol in get_watchlist():
+        if _is_etf(symbol):
+            continue
         try:
             tk = yf.Ticker(symbol, session=_yf_session)
             info = tk.info or {}
             price = info.get("regularMarketPrice") or info.get("currentPrice", 0)
-            mktcap = info.get("marketCap", 0)
+            mktcap = info.get("marketCap", 0) or 0
             beta = info.get("beta", 1.0) or 1.0
 
-            # yfinance earnings dates
-            df = tk.get_earnings_dates(limit=8)
-            if df is None or df.empty:
+            upcoming = get_upcoming_earnings(symbol, session=_yf_session)
+            if not upcoming:
                 continue
-            for idx in df.index:
-                edate = idx.date() if hasattr(idx, "date") else idx
-                if today < edate <= window_end:
-                    timing = "Before Market Open" if idx.hour < 12 else "After Market Close"
-                    if best is None or mktcap > best[2]:
-                        best = (symbol, edate, mktcap, price, beta, timing)
-                    break
+
+            # Find the first earnings date inside the window
+            edate = next((d for d in upcoming if today < d <= window_end), None)
+            if edate is None:
+                continue
+
+            # yfinance doesn't always give us the report time — default to AMC
+            # (After Market Close), which is the more common cadence.
+            timing = "After Market Close"
+            try:
+                df = tk.get_earnings_dates(limit=8)
+                if df is not None and not df.empty:
+                    for idx in df.index:
+                        if getattr(idx, "date", lambda: None)() == edate:
+                            timing = "Before Market Open" if idx.hour < 12 else "After Market Close"
+                            break
+            except Exception as e:
+                print(f"  Earnings timing lookup {symbol}: {e}")
+
+            if best is None or mktcap > best[2]:
+                best = (symbol, edate, mktcap, price, beta, timing)
         except Exception as e:
             print(f"  Earnings scan {symbol}: {e}")
 
@@ -773,8 +798,8 @@ def _keep_alive_ping():
         try:
             urllib.request.urlopen(url, timeout=5)
             break
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("keep-alive ping to %s failed: %s", url, e)
 
 
 _MARKET_HOLIDAYS_2026 = {
@@ -1911,7 +1936,7 @@ function save() {
 
   fetch(`${API}/api/admin/earnings`, {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
+  headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ admin_key: key, events })
   })
   .then(r => r.json())
@@ -1932,7 +1957,7 @@ def admin_panel():
     return HTMLResponse(_ADMIN_HTML)
 
 
-# ─── Serve React App ─────────────────────────────────────────────────────────
+# --- Serve React App ----------------------------------------------------------
 
 DIST_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
 if os.path.exists(DIST_DIR):

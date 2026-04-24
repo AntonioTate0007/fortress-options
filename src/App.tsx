@@ -164,7 +164,7 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.2.8';
+const CURRENT_VERSION = '2.3.0';
 
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
@@ -1360,11 +1360,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     apiFetch('/api/auth/verify').then(d => setTier(d.tier)).catch(() => {});
-    // @ts-ignore
     if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
-        // @ts-ignore
-        BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
+        BiometricAuth.checkBiometry().then((r) => setBiometricAvail(r.isAvailable)).catch(() => {});
       }).catch(() => {});
     }
   }, []);
@@ -1747,7 +1745,6 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   // Auto-trigger biometric on load when it's the preferred method
   useEffect(() => {
     if (mode !== 'biometric') return;
-    // @ts-ignore
     if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       setBiometryAvailable(true);
       triggerBiometric();
@@ -1759,7 +1756,6 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
   const triggerBiometric = async () => {
     try {
-      // @ts-ignore
       const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
       await BiometricAuth.authenticate({
         reason: 'Unlock Fortress Options',
@@ -2399,11 +2395,9 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
   const [showRecover, setShowRecover] = useState(false);
 
   useEffect(() => {
-    // @ts-ignore
     if (window.Capacitor?.isPluginAvailable?.('BiometricAuthNative')) {
       import('@aparajita/capacitor-biometric-auth').then(({ BiometricAuth }) => {
-        // @ts-ignore
-        BiometricAuth.checkBiometry().then((r: any) => setBiometricAvail(r.isAvailable)).catch(() => {});
+        BiometricAuth.checkBiometry().then((r) => setBiometricAvail(r.isAvailable)).catch(() => {});
       }).catch(() => {});
     }
   }, []);
@@ -3241,7 +3235,6 @@ export default function App() {
       const top = playsData.value?.[0];
       if (top) {
         try {
-          // @ts-ignore
           window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
         } catch {}
       }
@@ -3425,7 +3418,6 @@ export default function App() {
         const top = data?.[0];
         if (top) {
           try {
-            // @ts-ignore
             window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
           } catch {}
         }
