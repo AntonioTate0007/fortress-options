@@ -1367,11 +1367,47 @@ def _company_name(symbol: str) -> str:
 
 
 @app.get("/api/earnings")
+def _fetch_finnhub_calendar(api_key: str, days_ahead: int = 30) -> list[dict]:
+    """One-shot Finnhub earnings calendar pull. Returns the raw list (each
+    item has symbol/date/hour/...). Empty list on any failure.
+
+    Why one call: Finnhub's /calendar/earnings without a `symbol` param
+    returns the entire universe in the date range — much cheaper than
+    looping per ticker, and well under the 60/min free-tier ceiling.
+    """
+    import requests as _requests
+    from datetime import date as _date, timedelta as _td
+    today = _date.today()
+    cutoff = today + _td(days=days_ahead)
+    url = "https://finnhub.io/api/v1/calendar/earnings"
+    params = {
+        "from": today.isoformat(),
+        "to": cutoff.isoformat(),
+        "token": api_key,
+    }
+    try:
+        r = _requests.get(url, params=params, timeout=15)
+        r.raise_for_status()
+        return r.json().get("earningsCalendar") or []
+    except Exception as e:
+        log.warning("Finnhub earnings fetch failed: %s", e)
+        return []
+
+
+@app.get("/api/earnings")
 def get_earnings_calendar():
     """Public earnings calendar. Returns upcoming earnings for every symbol
     currently scanned (global + user watchlists), 30 days ahead, sorted by
     date. ETFs are excluded automatically. No auth — same surface as the
-    legacy static earnings.json."""
+    legacy static earnings.json.
+
+    Data sources, in priority order:
+      1. Finnhub (if FINNHUB_API_KEY env var is set) — reliable, one bulk
+         call covers all symbols, separate rate-limit pool from Yahoo.
+      2. yfinance via earnings.py — fallback for installs without Finnhub
+         configured. Yahoo aggressively throttles its earnings endpoints,
+         so this often returns [] on a hot Render IP.
+    """
     from datetime import date, timedelta
     from earnings import get_upcoming_earnings, is_etf
 
@@ -1382,33 +1418,71 @@ def get_earnings_calendar():
 
     today = date.today()
     cutoff = today + timedelta(days=30)
+    scanned = {s.upper() for s in get_all_scanned_symbols() if not is_etf(s)}
+    events: list[dict] = []
 
-    events = []
-    symbols = [s for s in get_all_scanned_symbols() if not is_etf(s)]
-    for i, symbol in enumerate(symbols):
-        # Pace requests to avoid Yahoo's burst rate-limiter — without this,
-        # every symbol came back as "Too Many Requests" and the feed stayed
-        # empty. ~250ms between calls keeps us under the threshold.
-        if i > 0:
-            time.sleep(0.25)
-        upcoming = get_upcoming_earnings(symbol, session=_yf_session)
-        edate = next((d for d in upcoming if today <= d <= cutoff), None)
-        if not edate:
-            continue
-        events.append({
-            "ticker": symbol,
-            "company": _company_name(symbol),
-            "date": edate.strftime("%b %-d, %Y") if os.name != "nt" else edate.strftime("%b %#d, %Y"),
-            "iso_date": edate.isoformat(),
-            "time": "After Close",  # yfinance doesn't reliably expose AM/PM
-        })
+    # ── Path A: Finnhub ──────────────────────────────────────────────────
+    finnhub_key = (os.getenv("FINNHUB_API_KEY") or "").strip()
+    if finnhub_key:
+        cal = _fetch_finnhub_calendar(finnhub_key, days_ahead=30)
+        log.info("/api/earnings finnhub returned %d total entries", len(cal))
+        for item in cal:
+            sym = (item.get("symbol") or "").upper()
+            if not sym or sym not in scanned:
+                continue
+            try:
+                d = date.fromisoformat(item["date"])
+            except Exception:
+                continue
+            if not (today <= d <= cutoff):
+                continue
+            hour = (item.get("hour") or "").lower()
+            time_label = {
+                "amc": "After Close",
+                "bmo": "Before Open",
+                "dmh": "During Market",
+            }.get(hour, "After Close")
+            events.append({
+                "ticker": sym,
+                # Finnhub's calendar response doesn't include company name;
+                # fall back to our cached lookup which uses yfinance.info
+                # but only for symbols we've never seen before.
+                "company": _company_name(sym),
+                "date": (
+                    d.strftime("%b %#d, %Y") if os.name == "nt"
+                    else d.strftime("%b %-d, %Y")
+                ),
+                "iso_date": d.isoformat(),
+                "time": time_label,
+            })
+
+    # ── Path B: yfinance fallback ────────────────────────────────────────
+    if not events:
+        symbols = sorted(scanned)
+        for i, symbol in enumerate(symbols):
+            if i > 0:
+                time.sleep(0.25)  # pace to dodge burst rate limit
+            upcoming = get_upcoming_earnings(symbol, session=_yf_session)
+            edate = next((d for d in upcoming if today <= d <= cutoff), None)
+            if not edate:
+                continue
+            events.append({
+                "ticker": symbol,
+                "company": _company_name(symbol),
+                "date": (
+                    edate.strftime("%b %#d, %Y") if os.name == "nt"
+                    else edate.strftime("%b %-d, %Y")
+                ),
+                "iso_date": edate.isoformat(),
+                "time": "After Close",
+            })
 
     # Sort by ISO date so consumers can rely on order regardless of locale.
     events.sort(key=lambda e: e["iso_date"])
     response = {"updated": today.isoformat(), "events": events}
     # Only cache populated responses — same reasoning as earnings.py: an empty
-    # list almost always means a transient yfinance failure, and we don't want
-    # to serve [] for 30 min once one bad call lands.
+    # list almost always means a transient upstream failure, and we don't
+    # want to serve [] for 30 min once one bad call lands.
     if events:
         _EARNINGS_RESPONSE_CACHE = (now, response)
     return response
