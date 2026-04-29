@@ -909,7 +909,7 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
 
   return (
     <Modal onClose={onClose}>
-      <div className="flex flex-col max-h-[88vh]">
+      <div className="flex flex-col max-h-[88vh] overflow-hidden">
         {/* Sticky header — always visible even when content scrolls */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0 bg-[#1C1C1E] rounded-t-3xl">
           <div>
@@ -935,7 +935,7 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 px-5 pb-5">
+        <div className="overflow-y-auto flex-1 min-h-0 px-5 pb-5">
 
         {/* Verdict */}
         <div className={`flex items-center gap-2 bg-zinc-900 rounded-xl px-3 py-2.5 mb-4 border ${isHot ? 'border-emerald-500/30' : 'border-zinc-700/50'}`}>
