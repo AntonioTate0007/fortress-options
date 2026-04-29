@@ -906,9 +906,9 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
 
   return (
     <Modal onClose={onClose}>
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col max-h-[88vh]">
+        {/* Sticky header — always visible even when content scrolls */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0 bg-[#1C1C1E] rounded-t-3xl">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-xl font-bold text-white">{play.symbol}</h3>
@@ -926,10 +926,13 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
                 : `$${play.short_strike}/$${play.long_strike} ${isBearCall ? 'Call Spread' : 'Put Spread'} · $${play.net_credit.toFixed(2)} credit`}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 bg-zinc-800 rounded-lg">
-            <X className="w-4 h-4 text-zinc-400" />
+          <button onClick={onClose} className="p-2 bg-zinc-800 rounded-xl active:bg-zinc-700">
+            <X className="w-5 h-5 text-zinc-300" />
           </button>
         </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-5 pb-5">
 
         {/* Verdict */}
         <div className={`flex items-center gap-2 bg-zinc-900 rounded-xl px-3 py-2.5 mb-4 border ${isHot ? 'border-emerald-500/30' : 'border-zinc-700/50'}`}>
@@ -1000,7 +1003,8 @@ function PlayReasoningModal({ play, onClose, onTrack }: { play: Play; onClose: (
         >
           {isHot ? '🔥 Track This Trade' : 'Track This Trade'}
         </button>
-      </div>
+        </div>{/* end scrollable body */}
+      </div>{/* end flex container */}
     </Modal>
   );
 }
