@@ -3238,6 +3238,14 @@ export default function App() {
           window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
         } catch {}
       }
+    } else {
+      // Fail loud: a /api/plays failure was silently swallowed for months and
+      // looked exactly like "no plays today" to the user. Show a toast so
+      // they (and we) know it's a network/server problem, not an empty feed.
+      const reason = (playsData as PromiseRejectedResult).reason;
+      const msg = (reason && (reason as Error).message) || 'unknown error';
+      console.error('[Fortress] /api/plays failed:', reason);
+      showToast(`Couldn't load plays — ${msg.slice(0, 80)}`);
     }
     if (posData.status === 'fulfilled') setPositions(posData.value);
     if (histData.status === 'fulfilled') setHistory(histData.value);

@@ -269,10 +269,13 @@ def scan_and_save(force: bool = False):
             return
 
         print(f"[{datetime.now():%H:%M:%S}] Running Fortress scan...")
-        with get_db() as conn:
-            # Mark current plays as not-latest (but keep them visible today)
-            conn.execute("UPDATE plays SET is_active = 0 WHERE is_active = 1")
-            conn.commit()
+        # Capture scan-start in UTC so we can deactivate plays from previous
+        # runs *after* the new plays have been inserted. This avoids the
+        # mid-scan window where users would see an empty feed because we'd
+        # blow away is_active=1 first and only insert replacements one symbol
+        # at a time over the next ~4 minutes.
+        from datetime import datetime as _dt_atomic, timezone as _tz_atomic
+        scan_start_utc = _dt_atomic.now(_tz_atomic.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
 
         for symbol in get_watchlist():
             try:
@@ -532,11 +535,24 @@ def scan_and_save(force: bool = False):
 
         print(f"[{datetime.now():%H:%M:%S}] Scan complete.")
 
-        # Send FCM push for newly found plays
+        # Atomically deactivate plays from previous scans now that the new
+        # ones are in. This is the second half of the "no mid-scan empty
+        # window" fix above — done in a single transaction.
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE plays SET is_active = 0 "
+                "WHERE is_active = 1 AND found_at < ?",
+                (scan_start_utc,),
+            )
+            conn.commit()
+
+        # Send FCM push for newly found plays — restrict to *this* scan's
+        # inserts so we don't double-notify on plays that were already in DB.
         with get_db() as conn:
             new_plays = conn.execute(
                 "SELECT symbol, score, net_credit, short_strike, long_strike, buffer_pct, ai_analysis "
-                "FROM plays WHERE is_active=1 ORDER BY score DESC"
+                "FROM plays WHERE is_active=1 AND found_at >= ? ORDER BY score DESC",
+                (scan_start_utc,),
             ).fetchall()
         if new_plays:
             top = new_plays[0]
@@ -1082,21 +1098,96 @@ class SubscribeRequest(BaseModel):
 # ─── API Routes ───────────────────────────────────────────────────────────────
 
 
+def _plays_visible_thresholds():
+    """Return (today_iso, cutoff_24h) — the same date thresholds /api/plays uses.
+    Centralized so /api/status, /api/plays, and the admin debug endpoint stay
+    aligned. UTC-based to match how the DB stores datetime('now')/NOW().
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    now_utc = _dt.now(_tz.utc).replace(tzinfo=None)
+    return (
+        now_utc.strftime("%Y-%m-%d"),
+        (now_utc - _td(hours=24)).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+
+
 @app.get("/api/status")
 def get_status():
+    """
+    Status snapshot for the home screen. The plays_available count uses the
+    *same* filter as /api/plays so the badge can never drift from what the
+    user actually sees in their feed (the cause of the "16 plays but app
+    shows nothing" report).
+    """
+    today_iso, cutoff_24h = _plays_visible_thresholds()
     with get_db() as conn:
-        plays_count = conn.execute("SELECT COUNT(*) FROM plays WHERE is_active=1").fetchone()[0]
-        pos_count = conn.execute("SELECT COUNT(*) FROM tracked_positions WHERE status='open'").fetchone()[0]
-        alert_count = conn.execute("SELECT COUNT(*) FROM alerts WHERE acknowledged=0").fetchone()[0]
-        subs_count = conn.execute("SELECT COUNT(*) FROM subscribers WHERE status='active'").fetchone()[0]
+        plays_count = conn.execute(
+            """SELECT COUNT(*) FROM plays
+               WHERE expiration >= ?
+               AND found_at >= ?
+               AND is_active >= 0""",
+            (today_iso, cutoff_24h),
+        ).fetchone()[0]
+        plays_total = conn.execute(
+            "SELECT COUNT(*) FROM plays WHERE is_active=1"
+        ).fetchone()[0]
+        pos_count = conn.execute(
+            "SELECT COUNT(*) FROM tracked_positions WHERE status='open'"
+        ).fetchone()[0]
+        alert_count = conn.execute(
+            "SELECT COUNT(*) FROM alerts WHERE acknowledged=0"
+        ).fetchone()[0]
+        subs_count = conn.execute(
+            "SELECT COUNT(*) FROM subscribers WHERE status='active'"
+        ).fetchone()[0]
     return {
         "status": "online",
-        "plays_available": plays_count,
+        "plays_available": plays_count,        # what the UI will actually render
+        "plays_total_in_db": plays_total,      # diagnostic: every is_active=1 row
         "open_positions": pos_count,
         "unread_alerts": alert_count,
         "active_subscribers": subs_count,
         "scanning": _is_scanning,
         "timestamp": datetime.now().isoformat(),
+    }
+
+
+@app.get("/api/diagnostics")
+def get_diagnostics(sub: dict = Depends(require_api_key)):
+    """
+    Per-user diagnostic so support can immediately see why a feed is empty.
+    Reports: raw row counts at each filter step, the user's tier, the
+    thresholds used, and a sample of the most recent plays.
+    """
+    today_iso, cutoff_24h = _plays_visible_thresholds()
+    tier = (sub.get("tier") or "basic").lower()
+
+    with get_db() as conn:
+        rows_total = conn.execute("SELECT COUNT(*) FROM plays").fetchone()[0]
+        rows_active = conn.execute(
+            "SELECT COUNT(*) FROM plays WHERE is_active >= 0"
+        ).fetchone()[0]
+        rows_in_window = conn.execute(
+            """SELECT COUNT(*) FROM plays
+               WHERE expiration >= ? AND found_at >= ? AND is_active >= 0""",
+            (today_iso, cutoff_24h),
+        ).fetchone()[0]
+        sample = conn.execute(
+            """SELECT symbol, play_type, expiration, found_at, is_active, score
+               FROM plays ORDER BY found_at DESC LIMIT 10"""
+        ).fetchall()
+
+    return {
+        "tier": tier,
+        "thresholds": {"today": today_iso, "cutoff_24h_utc": cutoff_24h},
+        "row_counts": {
+            "all_rows": rows_total,
+            "is_active_gte_0": rows_active,
+            "in_24h_window": rows_in_window,
+        },
+        "scanning": _is_scanning,
+        "market_open": is_market_hours(),
+        "recent_plays": [dict(r) for r in sample],
     }
 
 
@@ -1329,32 +1420,62 @@ def blast_email(req: BlastRequest):
 
 @app.get("/api/plays")
 def get_plays(sub: dict = Depends(require_api_key)):
-    """Returns all plays found today, latest scan first.
-    Includes plays for any symbol in the user's personal watchlist."""
-    tier_symbols = set(TIERS.get(sub.get("tier", "basic"), TIERS["basic"])["symbols"])
+    """Returns all plays found in the last 24h whose expiration is still in
+    the future, latest scan first.
+
+    Visibility rules:
+      - elite / pro:   see *every* play the scanner finds (their tier is
+                       "full access" — the per-user watchlist is for
+                       reference only and must NOT shrink their feed).
+      - basic:         see plays for symbols in their tier, plus anything
+                       they've explicitly added to their user_watchlist.
+
+    Implementation note: the date thresholds are computed in Python and bound
+    as parameters so the same SQL works on SQLite and Postgres. The previous
+    inline `datetime('now', '-24 hours')` SQLite-only syntax wasn't translated
+    by db.py's Postgres shim and silently returned zero rows on Render.
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    tier = (sub.get("tier") or "basic").lower()
+    tier_symbols = set(TIERS.get(tier, TIERS["basic"])["symbols"])
     api_key = sub.get("api_key", "")
+
+    # Bind UTC thresholds — both SQLite (datetime('now')) and Postgres (NOW())
+    # use UTC, so comparing against ISO-8601 UTC strings works in both.
+    now_utc = _dt.now(_tz.utc).replace(tzinfo=None)
+    cutoff_24h = (now_utc - _td(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    today_iso = now_utc.strftime("%Y-%m-%d")
+
     with get_db() as conn:
         rows = conn.execute(
             """SELECT * FROM plays
-               WHERE expiration >= date('now')
-               AND found_at >= datetime('now', '-24 hours')
+               WHERE expiration >= ?
+               AND found_at >= ?
                AND is_active >= 0
-               ORDER BY found_at DESC, score DESC, net_credit DESC"""
+               ORDER BY found_at DESC, score DESC, net_credit DESC""",
+            (today_iso, cutoff_24h),
         ).fetchall()
-        # Personal watchlist symbols for this user
+        # Personal watchlist symbols for this user (basic tier only).
         uw_rows = conn.execute(
             "SELECT symbol FROM user_watchlist WHERE api_key=?", (api_key,)
         ).fetchall()
+
+    plays = [dict(r) for r in rows]
+    log.info(
+        "/api/plays tier=%s rows=%d cutoff=%s today=%s",
+        tier, len(plays), cutoff_24h, today_iso,
+    )
+
+    if tier in ("elite", "pro"):
+        # Full access — never filter. This was a longstanding bug where elite
+        # users would silently lose plays for symbols outside their seeded
+        # user_watchlist (e.g. anything added to the global scanner watchlist).
+        return plays
+
     user_symbols = {r["symbol"] for r in uw_rows}
     allowed = tier_symbols | user_symbols
-    plays = [dict(r) for r in rows]
-    # Filter by tier + personal watchlist (elite/pro see everything in their tier)
-    if sub.get("tier") != "elite" and sub.get("tier") != "pro":
-        plays = [p for p in plays if p["symbol"] in allowed]
-    elif user_symbols:
-        # pro/elite already see their full tier; personal watchlist just adds more
-        plays = [p for p in plays if p["symbol"] in allowed]
-    return plays
+    return [p for p in plays if p["symbol"] in allowed]
 
 
 @app.post("/api/scan")
@@ -1876,7 +1997,7 @@ button.del:hover{background:#ef4444;color:#fff}
 </style>
 </head>
 <body>
-<h1>🏰 Fortress Options Admin</h1>
+<h1>Fortress Options Admin</h1>
 
 <div class="key-row">
   <input id="adminKey" type="password" placeholder="Admin key" />
@@ -1906,7 +2027,7 @@ function load() {
       container.innerHTML = '';
       (data.events || []).forEach(e => addRow(e));
     })
-    .catch(() => alert('Failed — check admin key'));
+    .catch(() => alert('Failed - check admin key'));
 }
 
 function addRow(e = {}) {
@@ -1921,7 +2042,7 @@ function addRow(e = {}) {
       <option value="After Close" ${e.time==='After Close'?'selected':''}>After Close</option>
       <option value="Before Open" ${e.time==='Before Open'?'selected':''}>Before Open</option>
     </select>
-    <button class="del" onclick="this.parentElement.remove()">✕</button>
+    <button class="del" onclick="this.parentElement.remove()">x</button>
   `;
   container.appendChild(row);
 }
@@ -1936,14 +2057,14 @@ function save() {
 
   fetch(`${API}/api/admin/earnings`, {
     method: 'POST',
-  headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ admin_key: key, events })
   })
   .then(r => r.json())
   .then(data => {
     const s = document.getElementById('status');
     s.style.display = 'block';
-    s.textContent = data.ok ? `✓ Saved ${data.count} events — live immediately` : 'Error saving';
+    s.textContent = data.ok ? `Saved ${data.count} events - live immediately` : 'Error saving';
     setTimeout(() => s.style.display = 'none', 4000);
   });
 }
