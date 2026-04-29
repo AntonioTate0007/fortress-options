@@ -1311,6 +1311,7 @@ def get_status():
         "unread_alerts": alert_count,
         "active_subscribers": subs_count,
         "scanning": _is_scanning,
+        "market_open": is_market_hours(),
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -1792,9 +1793,11 @@ def get_plays(sub: dict = Depends(require_api_key)):
 
 @app.post("/api/scan")
 def trigger_scan():
+    if not is_market_hours():
+        return {"message": "Market closed — scan skipped", "market_open": False}
     t = threading.Thread(target=lambda: scan_and_save(force=True), daemon=True)
     t.start()
-    return {"message": "Scan started"}
+    return {"message": "Scan started", "market_open": True}
 
 
 # ─── Watchlist endpoints ──────────────────────────────────────────────────────

@@ -92,6 +92,7 @@ interface BotStatus {
   open_positions: number;
   unread_alerts: number;
   scanning: boolean;
+  market_open: boolean;
 }
 
 type Tab = 'plays' | 'positions' | 'history' | 'alerts' | 'earnings';
@@ -2030,11 +2031,12 @@ function LoadingSkeleton() {
 // ─── Screens ─────────────────────────────────────────────────────────────────
 
 function PlaysScreen({
-  plays, loading, scanning, onTrack, onViewReasoning, onRefresh,
+  plays, loading, scanning, marketOpen, onTrack, onViewReasoning, onRefresh,
 }: {
   plays: Play[];
   loading: boolean;
   scanning: boolean;
+  marketOpen: boolean;
   onTrack: (p: Play) => void;
   onViewReasoning: (p: Play) => void;
   onRefresh: () => void;
@@ -2065,10 +2067,16 @@ function PlaysScreen({
         </div>
         <button
           onClick={onRefresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm text-zinc-300 transition-colors"
+          disabled={!marketOpen || scanning}
+          title={!marketOpen ? 'Market closed — scanner pauses until 9:30 AM ET' : undefined}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors ${
+            !marketOpen || scanning
+              ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed'
+              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+          }`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${scanning || loading ? 'animate-spin text-emerald-400' : ''}`} />
-          {scanning ? 'Scanning…' : 'Scan'}
+          {scanning ? 'Scanning…' : !marketOpen ? 'Closed' : 'Scan'}
         </button>
       </div>
 
@@ -3087,11 +3095,12 @@ function TabletPlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrac
 
 /** Left panel of the tablet layout — plays with expanded cards */
 function TabletPlaysPanel({
-  plays, loading, scanning, onTrack, onViewReasoning, onRefresh,
+  plays, loading, scanning, marketOpen, onTrack, onViewReasoning, onRefresh,
 }: {
   plays: Play[];
   loading: boolean;
   scanning: boolean;
+  marketOpen: boolean;
   onTrack: (p: Play) => void;
   onViewReasoning: (p: Play) => void;
   onRefresh: () => void;
@@ -3116,10 +3125,16 @@ function TabletPlaysPanel({
         </div>
         <button
           onClick={onRefresh}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm text-zinc-300 transition-colors"
+          disabled={!marketOpen || scanning}
+          title={!marketOpen ? 'Market closed — scanner pauses until 9:30 AM ET' : undefined}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors ${
+            !marketOpen || scanning
+              ? 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed'
+              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+          }`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${scanning || loading ? 'animate-spin text-emerald-400' : ''}`} />
-          {scanning ? 'Scanning…' : 'Scan'}
+          {scanning ? 'Scanning…' : !marketOpen ? 'Closed' : 'Scan'}
         </button>
       </div>
 
@@ -3160,7 +3175,7 @@ function TabletPlaysPanel({
 
 /** Two-column tablet layout for Pro/Elite users */
 function TabletLayout({
-  plays, positions, history, alerts, loading, scanning,
+  plays, positions, history, alerts, loading, scanning, marketOpen,
   tab, setTab, unreadAlerts,
   onTrack, onViewReasoning, onRefresh, onLoadAll,
   onRecommend, onClose, onAck, onDelete, onClearAlerts,
@@ -3171,6 +3186,7 @@ function TabletLayout({
   alerts: Alert[];
   loading: boolean;
   scanning: boolean;
+  marketOpen: boolean;
   tab: Tab;
   setTab: (t: Tab) => void;
   unreadAlerts: number;
@@ -3192,7 +3208,7 @@ function TabletLayout({
       {/* Left: Plays (55%) */}
       <div className="w-[55%] flex flex-col border-r border-zinc-800/80 overflow-hidden">
         <TabletPlaysPanel
-          plays={plays} loading={loading} scanning={scanning}
+          plays={plays} loading={loading} scanning={scanning} marketOpen={marketOpen}
           onTrack={onTrack} onViewReasoning={onViewReasoning} onRefresh={onRefresh}
         />
       </div>
@@ -3644,9 +3660,12 @@ export default function App() {
               Fortress <span className="text-emerald-400">Options</span>
             </h1>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                !isOnline ? 'bg-zinc-600' :
+                status?.market_open ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-500'
+              }`} />
               <span className="text-[10px] text-zinc-500">
-                {isOnline ? 'Connected' : 'Offline'}
+                {!isOnline ? 'Offline' : status?.market_open ? 'Market Open' : 'Market Closed'}
                 {status?.scanning && ' · Scanning…'}
               </span>
               {isOnline && (
@@ -3707,7 +3726,7 @@ export default function App() {
       {isPremiumTablet ? (
         <TabletLayout
           plays={plays} positions={positions} history={history} alerts={alerts}
-          loading={loading} scanning={status?.scanning ?? false}
+          loading={loading} scanning={status?.scanning ?? false} marketOpen={status?.market_open ?? false}
           tab={tab} setTab={setTab} unreadAlerts={unreadAlerts}
           onTrack={setTrackPlay} onViewReasoning={setReasoningPlay}
           onRefresh={handleScan} onLoadAll={loadAll}
@@ -3720,7 +3739,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             {tab === 'plays' && (
               <motion.div key="plays" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 overflow-hidden flex flex-col">
-                <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} onTrack={setTrackPlay} onViewReasoning={setReasoningPlay} onRefresh={handleScan} />
+                <PlaysScreen plays={plays} loading={loading} scanning={status?.scanning ?? false} marketOpen={status?.market_open ?? false} onTrack={setTrackPlay} onViewReasoning={setReasoningPlay} onRefresh={handleScan} />
               </motion.div>
             )}
             {tab === 'positions' && (
