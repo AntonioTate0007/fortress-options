@@ -98,6 +98,9 @@ def get_upcoming_earnings(symbol: str, session=None, use_cache: bool = True) -> 
     earliest first. Empty list if none/unknown.
 
     Uses a small in-process TTL cache so repeated scans don't hammer yfinance.
+    Empty results are NOT cached — yfinance occasionally returns nothing under
+    rate-limit / network blips, and a stuck-empty cache used to lock the
+    /api/earnings feed at zero events for hours.
     """
     sym = (symbol or "").upper()
     if not sym:
@@ -113,8 +116,12 @@ def get_upcoming_earnings(symbol: str, session=None, use_cache: bool = True) -> 
             all_dates = entry[1]
         else:
             all_dates = _fetch_earnings_dates(sym, session=session)
-            with _CACHE_LOCK:
-                _CACHE[sym] = (now, all_dates)
+            # Only cache positive results. An empty list usually means "we got
+            # rate limited / lxml not installed yet / yfinance hiccup", and
+            # we want the next call to retry instead of serving []  for 6h.
+            if all_dates:
+                with _CACHE_LOCK:
+                    _CACHE[sym] = (now, all_dates)
     else:
         all_dates = _fetch_earnings_dates(sym, session=session)
 

@@ -1402,7 +1402,11 @@ def get_earnings_calendar():
     # Sort by ISO date so consumers can rely on order regardless of locale.
     events.sort(key=lambda e: e["iso_date"])
     response = {"updated": today.isoformat(), "events": events}
-    _EARNINGS_RESPONSE_CACHE = (now, response)
+    # Only cache populated responses — same reasoning as earnings.py: an empty
+    # list almost always means a transient yfinance failure, and we don't want
+    # to serve [] for 30 min once one bad call lands.
+    if events:
+        _EARNINGS_RESPONSE_CACHE = (now, response)
     return response
 
 
