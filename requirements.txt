@@ -13,3 +13,6 @@ anthropic>=0.40.0
 psycopg2-binary>=2.9.9
 # Used as the yfinance HTTP session to dodge rate limits via Chrome impersonation.
 curl_cffi>=0.7.0
+# yfinance silently fails on get_earnings_dates() without lxml installed —
+# the error surfaces as "Import lxml failed. Use pip or conda to install".
+lxml>=5.0.0
