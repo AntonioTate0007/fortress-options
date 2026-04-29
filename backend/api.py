@@ -570,25 +570,33 @@ def scan_and_save(force: bool = False):
 
         print(f"[{datetime.now():%H:%M:%S}] Scan complete.")
 
-        # Atomically deactivate plays from previous scans now that the new
-        # ones are in. This is the second half of the "no mid-scan empty
-        # window" fix above — done in a single transaction.
-        with get_db() as conn:
-            conn.execute(
-                "UPDATE plays SET is_active = 0 "
-                "WHERE is_active = 1 AND found_at < ?",
-                (scan_start_utc,),
-            )
-            conn.commit()
-
-        # Send FCM push for newly found plays — restrict to *this* scan's
-        # inserts so we don't double-notify on plays that were already in DB.
+        # Check whether the scan actually inserted any new plays before deciding
+        # to deactivate old ones. If the scan found nothing (all symbols blocked
+        # by earnings filter, score threshold, etc.) we must NOT wipe the
+        # previous scan's plays — users would be left with an empty feed until
+        # the next successful scan. Only rotate when we have replacements.
         with get_db() as conn:
             new_plays = conn.execute(
                 "SELECT symbol, score, net_credit, short_strike, long_strike, buffer_pct, ai_analysis "
                 "FROM plays WHERE is_active=1 AND found_at >= ? ORDER BY score DESC",
                 (scan_start_utc,),
             ).fetchall()
+
+        if new_plays:
+            # New plays found — atomically retire the previous scan's plays now
+            # that fresh replacements are in. This is safe because we already
+            # have the new rows committed above.
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE plays SET is_active = 0 "
+                    "WHERE is_active = 1 AND found_at < ?",
+                    (scan_start_utc,),
+                )
+                conn.commit()
+            print(f"[{datetime.now():%H:%M:%S}] Rotated plays — {len(new_plays)} new, previous deactivated.")
+        else:
+            print(f"[{datetime.now():%H:%M:%S}] Scan found no new plays — keeping previous plays active.")
+
         if new_plays:
             top = new_plays[0]
             count = len(new_plays)
@@ -1092,10 +1100,33 @@ def seed_accounts():
         print(f"[seed] Stripe sync failed (non-fatal): {e}")
 
 
+def _recover_active_plays():
+    """Re-activate the most recent scan's plays if a bad empty-scan deactivated
+    everything. This is a one-time recovery that runs on startup; after the
+    deactivation-guard fix it should never be needed again."""
+    with get_db() as conn:
+        active = conn.execute("SELECT COUNT(*) FROM plays WHERE is_active=1").fetchone()[0]
+        if active == 0:
+            # Find the most recent scan batch (latest found_at group)
+            latest = conn.execute(
+                "SELECT found_at FROM plays ORDER BY found_at DESC LIMIT 1"
+            ).fetchone()
+            if latest:
+                # Re-activate everything from that scan (same minute window)
+                batch_ts = latest["found_at"][:16]  # "YYYY-MM-DD HH:MM"
+                conn.execute(
+                    "UPDATE plays SET is_active=1 WHERE found_at LIKE ?",
+                    (batch_ts + "%",),
+                )
+                conn.commit()
+                print(f"[startup] Recovered active plays from batch {batch_ts}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     seed_accounts()
+    _recover_active_plays()
     threading.Thread(target=background_loop, daemon=True).start()
     start_polling_thread()
     yield
