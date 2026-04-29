@@ -17,6 +17,7 @@ android/local.properties
 # APK outputs — website APKs are tracked for distribution
 *.apk
 !website/fortress-options*.apk
+!website/fortress-v*.apk
 
 # Misc
 .DS_Store

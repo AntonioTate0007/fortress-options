@@ -14,8 +14,13 @@ interface CapacitorPreferencesPlugin {
   remove: (opts: { key: string }) => Promise<void>;
 }
 
+interface CapacitorWidgetUpdaterPlugin {
+  refresh: () => Promise<void>;
+}
+
 interface CapacitorPluginsBag {
   Preferences?: CapacitorPreferencesPlugin;
+  WidgetUpdater?: CapacitorWidgetUpdaterPlugin;
   // Other plugins may be present at runtime — keep this open-ended.
   [key: string]: unknown;
 }
@@ -25,9 +30,16 @@ interface CapacitorRuntime {
   Plugins?: CapacitorPluginsBag;
 }
 
+interface ElectronAPI {
+  openRobinhood: (symbol: string, tradeDetails?: string) => Promise<{ ok: boolean }>;
+  closeRobinhood: () => Promise<{ ok: boolean }>;
+  isElectron: true;
+}
+
 declare global {
   interface Window {
     Capacitor?: CapacitorRuntime;
+    electronAPI?: ElectronAPI;
   }
 }
 

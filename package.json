@@ -1,8 +1,9 @@
 {
   "name": "fortress-options",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
@@ -11,7 +12,36 @@
     "lint": "tsc --noEmit",
     "android:init": "npx cap add android",
     "android:sync": "vite build && npx cap sync android",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "desktop:dev": "NODE_ENV=development electron electron/main.js",
+    "desktop:build": "vite build && electron-builder --win --publish never",
+    "desktop:build:mac": "vite build && electron-builder --mac --publish never",
+    "desktop:build:linux": "vite build && electron-builder --linux --publish never"
+  },
+  "build": {
+    "appId": "com.fortress.options.desktop",
+    "productName": "Fortress Options",
+    "icon": "fortress.ico",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "fortress.ico"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "fortress.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.finance"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^7.2.0",
@@ -31,6 +61,8 @@
     "@capacitor/cli": "^6.0.0",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2"

@@ -164,7 +164,7 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.3.0';
+const CURRENT_VERSION = '2.4.0';
 
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
@@ -263,8 +263,71 @@ function formatExpiration(dateStr: string, dte: number): string {
 
 function formatFoundAt(ts: string): string {
   if (!ts) return '';
-  const d = new Date(ts.includes('T') ? ts : ts.replace(' ', 'T') + 'Z');
+  // Postgres stores found_at as "2026-04-29 12:34:56.789+00" — space-separated,
+  // short timezone offset. Normalize to strict ISO so new Date() doesn't return
+  // "Invalid Date" on WebKit/Android WebView.
+  let iso = ts.replace(' ', 'T');                        // space → T
+  iso = iso.replace(/([+-]\d{2})$/, '$1:00');            // +00 → +00:00
+  if (!iso.includes('Z') && !/[+-]\d{2}:\d{2}/.test(iso)) iso += 'Z'; // bare SQLite → UTC
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function RobinhoodButton({ play }: { play: Play }) {
+  const [state, setState] = React.useState<'idle' | 'copied' | 'open'>('idle');
+
+  const handleTrade = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const typeLabel =
+      play.play_type === 'bear_call' ? 'Bear Call Spread' :
+      play.play_type === 'bull_put'  ? 'Bull Put Spread'  : 'Iron Condor';
+    const expFmt = formatExpiration(play.expiration, play.dte);
+    const details =
+      `${play.symbol} $${play.short_strike}/$${play.long_strike} ${typeLabel} | ` +
+      `$${play.net_credit.toFixed(2)} credit | Exp ${expFmt} | Score ${play.score}/10`;
+
+    if (window.electronAPI) {
+      // Desktop: open embedded Robinhood split-panel; main process copies to clipboard
+      setState('open');
+      await window.electronAPI.openRobinhood(play.symbol, details);
+    } else {
+      // Mobile / web: copy details to clipboard then open Robinhood in browser/app
+      try { await navigator.clipboard.writeText(details); } catch {}
+      setState('copied');
+      setTimeout(() => setState('idle'), 2000);
+      const url = `https://robinhood.com/options/${encodeURIComponent(play.symbol)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await window.electronAPI?.closeRobinhood();
+    setState('idle');
+  };
+
+  if (state === 'open' && window.electronAPI) {
+    return (
+      <button
+        onClick={handleClose}
+        className="flex-none flex items-center gap-1 px-3 py-3 rounded-xl text-xs font-semibold transition-colors border border-red-500/40 text-red-400 hover:bg-red-500/10"
+        title="Close Robinhood panel"
+      >
+        ✕ Close RH
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleTrade}
+      className="flex-none flex items-center gap-1 px-3 py-3 rounded-xl text-xs font-semibold transition-colors border border-[#00c805]/40 text-[#00c805] hover:bg-[#00c805]/10 active:bg-[#00c805]/20"
+      title="Copy trade details and open Robinhood"
+    >
+      {state === 'copied' ? '✓ Copied' : '🟢 Trade'}
+    </button>
+  );
 }
 
 function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p: Play) => void; onViewReasoning: (p: Play) => void }) {
@@ -378,6 +441,7 @@ function PlayCard({ play, onTrack, onViewReasoning }: { play: Play; onTrack: (p:
         >
           Why?
         </button>
+        <RobinhoodButton play={play} />
         <button
           onClick={e => { e.stopPropagation(); onTrack(play); }}
           className={`flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black font-bold text-sm rounded-xl transition-colors ${play.score >= 8 ? 'animate-pulse shadow-[0_0_16px_4px_rgba(16,185,129,0.6)]' : ''}`}
@@ -3235,11 +3299,14 @@ export default function App() {
     ]);
     if (playsData.status === 'fulfilled') {
       setPlays(playsData.value);
-      // Write top play to Capacitor Preferences so the home screen widget can read it
+      // Write top play to Capacitor Preferences so the home screen widget can read it,
+      // then kick the native WidgetUpdater plugin so the widget redraws now instead of
+      // waiting up to 30 minutes for the system's updatePeriodMillis timer.
       const top = playsData.value?.[0];
       if (top) {
         try {
-          window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+          await window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+          window.Capacitor?.Plugins?.WidgetUpdater?.refresh?.();
         } catch {}
       }
     } else {
@@ -3430,7 +3497,8 @@ export default function App() {
         const top = data?.[0];
         if (top) {
           try {
-            window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+            await window.Capacitor?.Plugins?.Preferences?.set({ key: 'fortress_top_play', value: JSON.stringify({ symbol: top.symbol, score: top.score }) });
+            window.Capacitor?.Plugins?.WidgetUpdater?.refresh?.();
           } catch {}
         }
       } catch {}
