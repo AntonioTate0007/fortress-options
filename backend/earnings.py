@@ -128,6 +128,23 @@ def _fetch_earnings_dates(symbol: str, session=None, limit: int = 8) -> list[dat
     except Exception as e:
         log.info("get_earnings_dates failed for %s: %s", symbol, e)
 
+    # ── Path 3: Ticker.info['earningsTimestamp'] — the v7/quote endpoint
+    # exposes the next earnings unix timestamp directly. This endpoint is
+    # rate-limited *separately* from the calendar JSON, so it tends to work
+    # even when paths 1 and 2 are throttled. This is our most reliable
+    # source for "when's the next earnings".
+    if not dates:
+        try:
+            tk = yf.Ticker(symbol, **kwargs)
+            info = tk.info or {}
+            ts = info.get("earningsTimestamp") or info.get("earningsTimestampStart")
+            if ts:
+                from datetime import datetime as _dt, timezone as _tz
+                d = _dt.fromtimestamp(int(ts), tz=_tz.utc).date()
+                dates.append(d)
+        except Exception as e:
+            log.info("info-based earnings lookup failed for %s: %s", symbol, e)
+
     return sorted(set(dates))
 
 
