@@ -52,11 +52,19 @@ except Exception as _fcm_init_err:
 import yfinance as yf
 try:
     from curl_cffi import requests as _curl_requests
-    _yf_session = _curl_requests.Session(impersonate="chrome110")
-    print("[yfinance] Using curl_cffi chrome110 session to avoid rate limits.")
+    _curl_cffi_available = True
+    print("[yfinance] curl_cffi available — will use chrome124 session per scan.")
 except Exception:
-    _yf_session = None
+    _curl_cffi_available = False
     print("[yfinance] curl_cffi not available — using default session.")
+
+def _make_yf_session():
+    """Return a fresh curl_cffi session impersonating a recent Chrome build."""
+    if _curl_cffi_available:
+        return _curl_requests.Session(impersonate="chrome124")
+    return None
+
+_yf_session = _make_yf_session()
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -298,6 +306,8 @@ def scan_and_save(force: bool = False):
             return
 
         print(f"[{datetime.now():%H:%M:%S}] Running Fortress scan...")
+        # Fresh session each scan so Yahoo Finance sees a new TLS fingerprint
+        scan_session = _make_yf_session()
         # Capture scan-start in UTC so we can deactivate plays from previous
         # runs *after* the new plays have been inserted. This avoids the
         # mid-scan window where users would see an empty feed because we'd
@@ -314,7 +324,7 @@ def scan_and_save(force: bool = False):
 
         for symbol in scan_symbols:
             try:
-                ticker = yf.Ticker(symbol, session=_yf_session)
+                ticker = yf.Ticker(symbol, session=scan_session)
                 current_price = float(ticker.fast_info["last_price"])
                 expirations = ticker.options
                 today = datetime.now()
@@ -335,7 +345,7 @@ def scan_and_save(force: bool = False):
                 # ETFs bypass (no earnings reports). Errors are logged but not fatal:
                 # a missing earnings feed shouldn't block the whole scanner.
                 has_earnings, earn_date = has_earnings_in_window(
-                    symbol, MAX_DTE, session=_yf_session
+                    symbol, MAX_DTE, session=scan_session
                 )
                 if has_earnings:
                     days_to_earn = (earn_date - today.date()).days
