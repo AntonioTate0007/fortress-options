@@ -326,7 +326,19 @@ def scan_and_save(force: bool = False):
             try:
                 ticker = yf.Ticker(symbol, session=scan_session)
                 current_price = float(ticker.fast_info["last_price"])
-                expirations = ticker.options
+                # Retry once on rate-limit with a 45-second back-off
+                for _attempt in range(2):
+                    try:
+                        expirations = ticker.options
+                        break
+                    except Exception as _rl_err:
+                        if _attempt == 0 and "Too Many Requests" in str(_rl_err):
+                            print(f"  {symbol}: rate-limited on options — waiting 45s before retry")
+                            time.sleep(45)
+                            scan_session = _make_yf_session()
+                            ticker = yf.Ticker(symbol, session=scan_session)
+                        else:
+                            raise
                 today = datetime.now()
 
                 # Collect all expirations in the DTE window
@@ -573,7 +585,7 @@ def scan_and_save(force: bool = False):
                           f"${_put_play['short_strike']:.0f}/{_call_play['short_strike']:.0f} "
                           f"exp={_put_exp} | Score {ic_score}/10 | Credit ${combined_credit:.2f}")
 
-                time.sleep(1)  # yfinance rate limit buffer
+                time.sleep(3)  # yfinance rate limit buffer
 
             except Exception as e:
                 print(f"  Scan error {symbol}: {e}")
