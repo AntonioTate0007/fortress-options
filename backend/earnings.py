@@ -56,6 +56,13 @@ def _fetch_earnings_dates(symbol: str, session=None, limit: int = 8) -> list[dat
     """
     Ask yfinance for upcoming earnings dates. Returns a de-duplicated, sorted
     list of dates (earliest first). Returns [] on any error or missing data.
+
+    Strategy: try Ticker.calendar first (a small dict including the next
+    earnings date — most stable API surface), then fall back to
+    Ticker.get_earnings_dates() for historical context. Recent yfinance
+    releases (~0.2.40+) have a parser regression where get_earnings_dates()
+    raises KeyError(['Earnings Date']) for many tickers, so calendar is
+    actually the more reliable source for the *upcoming* date.
     """
     try:
         import yfinance as yf
@@ -63,31 +70,46 @@ def _fetch_earnings_dates(symbol: str, session=None, limit: int = 8) -> list[dat
         log.warning("yfinance not installed — earnings filter disabled")
         return []
 
+    kwargs = {"session": session} if session is not None else {}
+    dates: list[date] = []
+
+    # ── Path 1: Ticker.calendar — returns a small dict with the next earnings
+    # date(s). Stable across recent yfinance versions.
     try:
-        kwargs = {"session": session} if session is not None else {}
+        tk = yf.Ticker(symbol, **kwargs)
+        cal = tk.calendar
+        # cal can be a DataFrame (older yfinance) or a dict (newer). Handle
+        # both. The earnings date(s) live under a key whose name varies slightly.
+        cal_dates = None
+        if isinstance(cal, dict):
+            cal_dates = cal.get("Earnings Date") or cal.get("earnings_date")
+        elif cal is not None and hasattr(cal, "loc"):
+            try:
+                cal_dates = cal.loc["Earnings Date"].tolist()
+            except Exception:
+                pass
+        if cal_dates:
+            if not isinstance(cal_dates, (list, tuple)):
+                cal_dates = [cal_dates]
+            for v in cal_dates:
+                d = _to_date(v)
+                if d is not None:
+                    dates.append(d)
+    except Exception as e:
+        log.info("calendar lookup failed for %s: %s", symbol, e)
+
+    # ── Path 2: Ticker.get_earnings_dates() — historical + future. Often
+    # works; tolerate failure since calendar already gave us the upcoming.
+    try:
         tk = yf.Ticker(symbol, **kwargs)
         df = tk.get_earnings_dates(limit=limit)
+        if df is not None and not df.empty:
+            for idx in df.index:
+                d = _to_date(idx)
+                if d is not None:
+                    dates.append(d)
     except Exception as e:
-        log.info("earnings lookup failed for %s: %s", symbol, e)
-        return []
-
-    if df is None:
-        return []
-    try:
-        if df.empty:
-            return []
-    except Exception:
-        return []
-
-    dates: list[date] = []
-    try:
-        for idx in df.index:
-            d = _to_date(idx)
-            if d is not None:
-                dates.append(d)
-    except Exception as e:
-        log.info("earnings index parse failed for %s: %s", symbol, e)
-        return []
+        log.info("get_earnings_dates failed for %s: %s", symbol, e)
 
     return sorted(set(dates))
 
