@@ -166,6 +166,9 @@ function isMarketJustOpened(): boolean {
 // ─── App version ─────────────────────────────────────────────────────────────
 const CURRENT_VERSION = '2.4.0';
 
+// ─── Desktop detection ───────────────────────────────────────────────────────
+const IS_ELECTRON = !!window.electronAPI?.isElectron;
+
 // ─── Tablet detection ─────────────────────────────────────────────────────────
 function useIsTablet() {
   const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 1024);
@@ -2482,7 +2485,11 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
     try {
       const data = await apiFetch('/api/auth/verify');
       setTier(data.tier);
-      setStep('security');
+      if (IS_ELECTRON) {
+        onComplete();
+      } else {
+        setStep('security');
+      }
     } catch {
       localStorage.removeItem('fortress_api_key');
       setVerifyError('Invalid API key. Use "Recover my key" below if you forgot it.');
@@ -3245,9 +3252,10 @@ function TabletLayout({
 export default function App() {
   const hasApiKey = !!localStorage.getItem('fortress_api_key');
   const hasPin = !!localStorage.getItem('fortress_pin');
-  const [setupDone, setSetupDone] = useState(hasApiKey && hasPin);
+  // Desktop skips PIN requirement — API key alone is sufficient
+  const [setupDone, setSetupDone] = useState(IS_ELECTRON ? hasApiKey : (hasApiKey && hasPin));
   const onboardStart: OnboardStep = hasApiKey && !hasPin ? 'security' : 'welcome';
-  const [locked, setLocked] = useState(true);
+  const [locked, setLocked] = useState(!IS_ELECTRON);
   const lastActivity = useRef(Date.now());
   const [tab, setTab] = useState<Tab>('plays');
   const [dark, setDark] = useState(() => localStorage.getItem('fortress_theme') !== 'light');
@@ -3512,7 +3520,7 @@ export default function App() {
 
   // ── Inactivity auto-lock (user-configured timeout) ────────────────────────
   useEffect(() => {
-    if (locked) return;
+    if (locked || IS_ELECTRON) return;
     const savedMinutes = parseInt(localStorage.getItem('fortress_lock_timeout') || '5', 10);
     if (savedMinutes === 0) return; // "Never" — no lock timer
     const TIMEOUT = savedMinutes * 60 * 1000;
@@ -3666,8 +3674,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Update banner */}
-      {updateInfo && !updateDismissed && (
+      {/* Update banner — Android only (desktop has its own installer) */}
+      {updateInfo && !updateDismissed && !IS_ELECTRON && (
         <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/30">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-emerald-400 text-xs font-bold shrink-0">v{updateInfo.latest} available</span>

@@ -21,22 +21,27 @@
   "build": {
     "appId": "com.fortress.options.desktop",
     "productName": "Fortress Options",
-    "icon": "fortress.ico",
+    "icon": "fortress-512.png",
+    "directories": {
+      "output": "dist_electron"
+    },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "fortress.ico"
+      "fortress-512.png"
     ],
     "win": {
       "target": "nsis",
-      "icon": "fortress.ico"
+      "icon": "fortress-512.png"
     },
     "mac": {
       "target": "dmg",
+      "icon": "fortress-512.png",
       "category": "public.app-category.finance"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "fortress-512.png"
     },
     "nsis": {
       "oneClick": false,

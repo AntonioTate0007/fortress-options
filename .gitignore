@@ -19,6 +19,14 @@ android/local.properties
 !website/fortress-options*.apk
 !website/fortress-v*.apk
 
+# Windows installers — website builds are tracked for distribution
+*.exe
+!website/fortress-options-windows*.exe
+
+# Electron build output
+dist_electron/
+release/
+
 # Misc
 .DS_Store
 *.log

@@ -17,7 +17,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0A0A0B',
     titleBarStyle: 'hiddenInset',
-    icon: path.join(__dirname, '../fortress.ico'),
+    icon: path.join(__dirname, '../fortress-512.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

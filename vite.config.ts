@@ -10,6 +10,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  // './' makes asset paths relative — required for Electron's file:// loader
+  // and harmless for web (browser resolves relative to the page origin).
+  base: './',
   build: {
     outDir: 'dist',
   },
