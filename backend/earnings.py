@@ -63,6 +63,12 @@ def _fetch_earnings_dates(symbol: str, session=None, limit: int = 8) -> list[dat
     releases (~0.2.40+) have a parser regression where get_earnings_dates()
     raises KeyError(['Earnings Date']) for many tickers, so calendar is
     actually the more reliable source for the *upcoming* date.
+
+    Rate-limit handling: Yahoo aggressively throttles bursts ("Too Many
+    Requests"). We retry once with a longer backoff before giving up — the
+    second attempt usually succeeds since the throttle is short-lived.
+    Callers should still pace bulk lookups (sleep between symbols) so the
+    first attempt has a fighting chance.
     """
     try:
         import yfinance as yf
@@ -73,30 +79,41 @@ def _fetch_earnings_dates(symbol: str, session=None, limit: int = 8) -> list[dat
     kwargs = {"session": session} if session is not None else {}
     dates: list[date] = []
 
+    def _is_rate_limited(err: Exception) -> bool:
+        s = str(err).lower()
+        return "too many requests" in s or "rate limit" in s or "429" in s
+
     # ── Path 1: Ticker.calendar — returns a small dict with the next earnings
     # date(s). Stable across recent yfinance versions.
-    try:
-        tk = yf.Ticker(symbol, **kwargs)
-        cal = tk.calendar
-        # cal can be a DataFrame (older yfinance) or a dict (newer). Handle
-        # both. The earnings date(s) live under a key whose name varies slightly.
-        cal_dates = None
-        if isinstance(cal, dict):
-            cal_dates = cal.get("Earnings Date") or cal.get("earnings_date")
-        elif cal is not None and hasattr(cal, "loc"):
-            try:
-                cal_dates = cal.loc["Earnings Date"].tolist()
-            except Exception:
-                pass
-        if cal_dates:
-            if not isinstance(cal_dates, (list, tuple)):
-                cal_dates = [cal_dates]
-            for v in cal_dates:
-                d = _to_date(v)
-                if d is not None:
-                    dates.append(d)
-    except Exception as e:
-        log.info("calendar lookup failed for %s: %s", symbol, e)
+    for attempt in (0, 1):
+        try:
+            tk = yf.Ticker(symbol, **kwargs)
+            cal = tk.calendar
+            # cal can be a DataFrame (older yfinance) or a dict (newer). Handle
+            # both. The earnings date(s) live under a key whose name varies slightly.
+            cal_dates = None
+            if isinstance(cal, dict):
+                cal_dates = cal.get("Earnings Date") or cal.get("earnings_date")
+            elif cal is not None and hasattr(cal, "loc"):
+                try:
+                    cal_dates = cal.loc["Earnings Date"].tolist()
+                except Exception:
+                    pass
+            if cal_dates:
+                if not isinstance(cal_dates, (list, tuple)):
+                    cal_dates = [cal_dates]
+                for v in cal_dates:
+                    d = _to_date(v)
+                    if d is not None:
+                        dates.append(d)
+            break  # success or empty cal — don't retry
+        except Exception as e:
+            if attempt == 0 and _is_rate_limited(e):
+                log.info("calendar rate-limited for %s, retrying in 3s", symbol)
+                time.sleep(3.0)
+                continue
+            log.info("calendar lookup failed for %s: %s", symbol, e)
+            break
 
     # ── Path 2: Ticker.get_earnings_dates() — historical + future. Often
     # works; tolerate failure since calendar already gave us the upcoming.

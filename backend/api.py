@@ -1384,9 +1384,13 @@ def get_earnings_calendar():
     cutoff = today + timedelta(days=30)
 
     events = []
-    for symbol in get_all_scanned_symbols():
-        if is_etf(symbol):
-            continue
+    symbols = [s for s in get_all_scanned_symbols() if not is_etf(s)]
+    for i, symbol in enumerate(symbols):
+        # Pace requests to avoid Yahoo's burst rate-limiter — without this,
+        # every symbol came back as "Too Many Requests" and the feed stayed
+        # empty. ~250ms between calls keeps us under the threshold.
+        if i > 0:
+            time.sleep(0.25)
         upcoming = get_upcoming_earnings(symbol, session=_yf_session)
         edate = next((d for d in upcoming if today <= d <= cutoff), None)
         if not edate:
