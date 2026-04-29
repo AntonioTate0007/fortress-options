@@ -97,6 +97,35 @@ def get_watchlist() -> list[str]:
         return symbols if symbols else DEFAULT_WATCHLIST
     except Exception:
         return DEFAULT_WATCHLIST
+
+
+def get_all_scanned_symbols() -> list[str]:
+    """The full set of symbols the scanner should look at: the global watchlist
+    plus every distinct symbol any user has added to their personal watchlist.
+
+    Why: previously scan_and_save() only iterated the global watchlist, so a
+    user could add e.g. BABA to their personal feed and the scanner would
+    never look at it — they'd see no plays for it forever. We dedupe and
+    sort here so the scan is deterministic.
+    """
+    symbols: set[str] = set(get_watchlist())
+    try:
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT symbol FROM user_watchlist"
+            ).fetchall()
+        for r in rows:
+            sym = (r["symbol"] or "").upper().strip()
+            if sym:
+                symbols.add(sym)
+    except Exception as e:
+        # user_watchlist may not exist on a brand-new install; don't break the
+        # scan over it.
+        try:
+            log.warning("user_watchlist union failed: %s", e)
+        except NameError:
+            pass
+    return sorted(symbols)
 MIN_DTE = 5
 MAX_DTE = 21
 OTM_BUFFER_MIN = 0.03
@@ -277,7 +306,13 @@ def scan_and_save(force: bool = False):
         from datetime import datetime as _dt_atomic, timezone as _tz_atomic
         scan_start_utc = _dt_atomic.now(_tz_atomic.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
 
-        for symbol in get_watchlist():
+        # Scan the union of the global watchlist + every user's personal
+        # watchlist so user-added tickers actually get plays.
+        scan_symbols = get_all_scanned_symbols()
+        print(f"  scanning {len(scan_symbols)} symbols: {', '.join(scan_symbols[:20])}"
+              + (f" (+{len(scan_symbols)-20} more)" if len(scan_symbols) > 20 else ""))
+
+        for symbol in scan_symbols:
             try:
                 ticker = yf.Ticker(symbol, session=_yf_session)
                 current_price = float(ticker.fast_info["last_price"])
@@ -668,9 +703,10 @@ def send_weekly_earnings_briefing():
 
     # ── Find the best earnings candidate in the watchlist ─────────────────────
     # Uses the cached earnings lookup so we don't refetch on every call and so
-    # ETFs (SPY/QQQ/etc.) are cleanly excluded.
+    # ETFs (SPY/QQQ/etc.) are cleanly excluded. Includes per-user watchlist
+    # additions so stocks users care about can become the briefing pick.
     best = None          # (symbol, date, market_cap, price, beta, timing)
-    for symbol in get_watchlist():
+    for symbol in get_all_scanned_symbols():
         if _is_etf(symbol):
             continue
         try:
@@ -1300,6 +1336,74 @@ def trigger_earnings_briefing(admin_key: str = ""):
     t = threading.Thread(target=send_weekly_earnings_briefing, daemon=True)
     t.start()
     return {"message": "Earnings briefing started"}
+
+
+# ─── Dynamic earnings calendar ────────────────────────────────────────────────
+# Why: the EarningsScreen used to fetch a static website/earnings.json, which
+# only updated when the admin panel was used (and even that wrote to Render's
+# disk, never to the Vercel-hosted file). End result: the list went stale by
+# over a year. This endpoint computes the upcoming-earnings list live from
+# yfinance for every symbol the scanner sees (global watchlist + every user's
+# personal additions), with a small TTL cache so we don't hammer yfinance.
+
+_EARNINGS_RESPONSE_CACHE: tuple[float, dict] | None = None
+_EARNINGS_RESPONSE_TTL = 30 * 60  # 30 min — earnings dates rarely move
+_EARNINGS_COMPANY_CACHE: dict[str, str] = {}
+
+
+def _company_name(symbol: str) -> str:
+    """Best-effort yfinance long/short name lookup with an in-process cache.
+    Falls back to the ticker symbol if yfinance can't tell us anything."""
+    if symbol in _EARNINGS_COMPANY_CACHE:
+        return _EARNINGS_COMPANY_CACHE[symbol]
+    name = symbol
+    try:
+        info = yf.Ticker(symbol, session=_yf_session).info or {}
+        name = info.get("longName") or info.get("shortName") or symbol
+    except Exception as e:
+        log.info("company-name lookup failed for %s: %s", symbol, e)
+    _EARNINGS_COMPANY_CACHE[symbol] = name
+    return name
+
+
+@app.get("/api/earnings")
+def get_earnings_calendar():
+    """Public earnings calendar. Returns upcoming earnings for every symbol
+    currently scanned (global + user watchlists), 30 days ahead, sorted by
+    date. ETFs are excluded automatically. No auth — same surface as the
+    legacy static earnings.json."""
+    from datetime import date, timedelta
+    from earnings import get_upcoming_earnings, is_etf
+
+    global _EARNINGS_RESPONSE_CACHE
+    now = time.time()
+    if _EARNINGS_RESPONSE_CACHE and (now - _EARNINGS_RESPONSE_CACHE[0]) < _EARNINGS_RESPONSE_TTL:
+        return _EARNINGS_RESPONSE_CACHE[1]
+
+    today = date.today()
+    cutoff = today + timedelta(days=30)
+
+    events = []
+    for symbol in get_all_scanned_symbols():
+        if is_etf(symbol):
+            continue
+        upcoming = get_upcoming_earnings(symbol, session=_yf_session)
+        edate = next((d for d in upcoming if today <= d <= cutoff), None)
+        if not edate:
+            continue
+        events.append({
+            "ticker": symbol,
+            "company": _company_name(symbol),
+            "date": edate.strftime("%b %-d, %Y") if os.name != "nt" else edate.strftime("%b %#d, %Y"),
+            "iso_date": edate.isoformat(),
+            "time": "After Close",  # yfinance doesn't reliably expose AM/PM
+        })
+
+    # Sort by ISO date so consumers can rely on order regardless of locale.
+    events.sort(key=lambda e: e["iso_date"])
+    response = {"updated": today.isoformat(), "events": events}
+    _EARNINGS_RESPONSE_CACHE = (now, response)
+    return response
 
 
 @app.get("/api/auth/verify")

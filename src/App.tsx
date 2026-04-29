@@ -2290,14 +2290,18 @@ function EarningsScreen() {
   const [loadingEarnings, setLoadingEarnings] = useState(true);
 
   useEffect(() => {
-    fetch('https://fortress-options.com/earnings.json')
-      .then(r => r.json())
+    // Use the dynamic backend endpoint instead of the static earnings.json on
+    // Vercel — that file went a year stale because admin-panel writes never
+    // got pushed to GitHub. /api/earnings is computed live from yfinance for
+    // every symbol the scanner sees (global + per-user watchlists), with a
+    // 30-min cache on the server side.
+    apiFetch('/api/earnings')
       .then(data => {
         if (Array.isArray(data.events) && data.events.length > 0) {
           setEvents(data.events.map((e: any) => ({ ...e, tier: 'pro' as const })));
         }
       })
-      .catch(() => {})
+      .catch(err => console.warn('[Earnings] fetch failed:', err))
       .finally(() => setLoadingEarnings(false));
   }, []);
 
