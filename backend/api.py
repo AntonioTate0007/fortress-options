@@ -65,6 +65,64 @@ def _make_yf_session():
     return None
 
 _yf_session = _make_yf_session()
+
+# ── Tradier options data source ───────────────────────────────────────────────
+# Set TRADIER_API_KEY in Render env vars to use Tradier instead of Yahoo Finance.
+# Free developer sandbox: https://developer.tradier.com  (60 req/min, real data)
+# Set TRADIER_PRODUCTION=1 to point at api.tradier.com for live brokerage access.
+_TRADIER_TOKEN = os.getenv("TRADIER_API_KEY", "")
+_TRADIER_BASE = (
+    "https://api.tradier.com/v1" if os.getenv("TRADIER_PRODUCTION", "")
+    else "https://sandbox.tradier.com/v1"
+)
+
+def _tradier_get(path: str, params: dict) -> dict:
+    import requests as _req
+    r = _req.get(
+        f"{_TRADIER_BASE}{path}", params=params,
+        headers={"Authorization": f"Bearer {_TRADIER_TOKEN}", "Accept": "application/json"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json()
+
+def _tradier_price(symbol: str) -> float:
+    data = _tradier_get("/markets/quotes", {"symbols": symbol})
+    q = data["quotes"]["quote"]
+    if isinstance(q, list):
+        q = q[0]
+    return float(q.get("last") or q.get("ask") or q.get("bid") or 0)
+
+def _tradier_expirations(symbol: str) -> list:
+    data = _tradier_get("/markets/options/expirations", {"symbol": symbol})
+    raw = (data.get("expirations") or {}).get("date") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    return sorted(raw)
+
+def _tradier_chain(symbol: str, expiration: str):
+    """Returns (puts_df, calls_df) with column names matching yfinance output."""
+    import pandas as _pd
+    data = _tradier_get("/markets/options/chains", {
+        "symbol": symbol, "expiration": expiration, "greeks": "true",
+    })
+    raw = (data.get("options") or {}).get("option") or []
+    if isinstance(raw, dict):
+        raw = [raw]
+    puts, calls = [], []
+    for o in raw:
+        g = o.get("greeks") or {}
+        row = {
+            "strike": float(o.get("strike") or 0),
+            "bid": float(o.get("bid") or 0),
+            "ask": float(o.get("ask") or 0),
+            "volume": int(o.get("volume") or 0),
+            "openInterest": int(o.get("open_interest") or 0),
+            "impliedVolatility": float(g.get("mid_iv") or 0),
+        }
+        (puts if o.get("option_type") == "put" else calls).append(row)
+    return _pd.DataFrame(puts), _pd.DataFrame(calls)
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -324,21 +382,37 @@ def scan_and_save(force: bool = False):
 
         for symbol in scan_symbols:
             try:
-                ticker = yf.Ticker(symbol, session=scan_session)
-                current_price = float(ticker.fast_info["last_price"])
-                # Retry once on rate-limit with a 45-second back-off
-                for _attempt in range(2):
-                    try:
-                        expirations = ticker.options
-                        break
-                    except Exception as _rl_err:
-                        if _attempt == 0 and "Too Many Requests" in str(_rl_err):
-                            print(f"  {symbol}: rate-limited on options — waiting 45s before retry")
-                            time.sleep(45)
-                            scan_session = _make_yf_session()
-                            ticker = yf.Ticker(symbol, session=scan_session)
-                        else:
-                            raise
+                if _TRADIER_TOKEN:
+                    # ── Tradier path (no rate-limit issues) ──────────────────
+                    current_price = _tradier_price(symbol)
+                    expirations = _tradier_expirations(symbol)
+                    _chain_cache: dict = {}
+                    def _get_chain(exp, _sym=symbol):
+                        if exp not in _chain_cache:
+                            _chain_cache[exp] = _tradier_chain(_sym, exp)
+                        class _R:
+                            pass
+                        r = _R()
+                        r.puts, r.calls = _chain_cache[exp]
+                        return r
+                    ticker = None
+                else:
+                    # ── yfinance path (fallback) ──────────────────────────────
+                    ticker = yf.Ticker(symbol, session=scan_session)
+                    current_price = float(ticker.fast_info["last_price"])
+                    for _attempt in range(2):
+                        try:
+                            expirations = ticker.options
+                            break
+                        except Exception as _rl_err:
+                            if _attempt == 0 and "Too Many Requests" in str(_rl_err):
+                                print(f"  {symbol}: rate-limited on options — waiting 45s before retry")
+                                time.sleep(45)
+                                scan_session = _make_yf_session()
+                                ticker = yf.Ticker(symbol, session=scan_session)
+                            else:
+                                raise
+                    _get_chain = ticker.option_chain
                 today = datetime.now()
 
                 # Collect all expirations in the DTE window
@@ -377,7 +451,7 @@ def scan_and_save(force: bool = False):
                     if found_put:
                         break
 
-                    opt_chain = ticker.option_chain(target_date)
+                    opt_chain = _get_chain(target_date)
                     puts = opt_chain.puts
                     puts = puts[(puts["bid"] > 0) & (puts["ask"] > 0)]
 
@@ -459,7 +533,7 @@ def scan_and_save(force: bool = False):
                     if found_call:
                         break
 
-                    opt_chain = ticker.option_chain(target_date)
+                    opt_chain = _get_chain(target_date)
                     calls = opt_chain.calls
                     calls = calls[(calls["bid"] > 0) & (calls["ask"] > 0)]
 
