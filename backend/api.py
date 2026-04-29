@@ -1366,7 +1366,6 @@ def _company_name(symbol: str) -> str:
     return name
 
 
-@app.get("/api/earnings")
 def _fetch_finnhub_calendar(api_key: str, days_ahead: int = 30) -> list[dict]:
     """One-shot Finnhub earnings calendar pull. Returns the raw list (each
     item has symbol/date/hour/...). Empty list on any failure.
