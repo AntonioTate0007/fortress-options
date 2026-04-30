@@ -23,7 +23,7 @@
     "productName": "Fortress Options",
     "icon": "fortress-512.png",
     "directories": {
-      "output": "dist_electron"
+      "output": "dist_electron2"
     },
     "files": [
       "dist/**/*",
