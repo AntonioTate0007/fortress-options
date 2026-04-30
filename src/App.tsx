@@ -1884,6 +1884,21 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     else setPin(p => p.slice(0, -1));
   };
 
+  // Keyboard support — lets desktop users type digits instead of clicking the numpad
+  const handleDigitRef = useRef(handleDigit);
+  const handleBackspaceRef = useRef(handleBackspace);
+  handleDigitRef.current = handleDigit;
+  handleBackspaceRef.current = handleBackspace;
+  useEffect(() => {
+    if (mode === 'biometric') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) handleDigitRef.current(e.key);
+      else if (e.key === 'Backspace') handleBackspaceRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode]);
+
   const currentLen = mode === 'setup' ? setupPin.length : pin.length;
   const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
@@ -2569,6 +2584,21 @@ function OnboardingFlow({ onComplete, initialStep = 'welcome' }: { onComplete: (
     if (step === 'pin-setup') setSetupPin(p => p.slice(0, -1));
     else setPin(p => p.slice(0, -1));
   };
+
+  // Keyboard support for PIN steps
+  const handlePinDigitRef = useRef(handlePinDigit);
+  const handlePinBackRef = useRef(handlePinBack);
+  handlePinDigitRef.current = handlePinDigit;
+  handlePinBackRef.current = handlePinBack;
+  useEffect(() => {
+    if (step !== 'pin-setup' && step !== 'pin-confirm') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) handlePinDigitRef.current(e.key);
+      else if (e.key === 'Backspace') handlePinBackRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step]);
 
   const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 
