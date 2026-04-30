@@ -1,0 +1,50 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'GitHub Release tag to upload DMG to'
+        required: true
+        default: 'v2.4.0-mac'
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+
+      - name: Build macOS DMG
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Find DMG
+        id: find_dmg
+        run: |
+          DMG=$(find dist_electron2 -name "*.dmg" | head -1)
+          echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
+          echo "Found: $DMG"
+
+      - name: Create release if needed and upload DMG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          # Create release if it doesn't exist
+          gh release view "$TAG" || gh release create "$TAG" \
+            --title "Fortress Options macOS $TAG" \
+            --notes "macOS desktop app — unsigned build. On first launch: right-click the app → Open → Open."
+          # Upload DMG
+          gh release upload "$TAG" "${{ steps.find_dmg.outputs.dmg_path }}#Fortress.Options.dmg" --clobber
