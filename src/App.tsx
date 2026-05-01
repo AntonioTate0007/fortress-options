@@ -165,7 +165,7 @@ function isMarketJustOpened(): boolean {
 }
 
 // ─── App version ─────────────────────────────────────────────────────────────
-const CURRENT_VERSION = '2.4.0';
+const CURRENT_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '2.4.0';
 
 // ─── Desktop detection ───────────────────────────────────────────────────────
 const IS_ELECTRON = !!window.electronAPI?.isElectron;
@@ -3316,14 +3316,19 @@ export default function App() {
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
   useEffect(() => {
-    fetch('https://fortress-options.com/version.json')
-      .then(r => r.json())
-      .then(data => {
-        if (data.latest && data.latest !== CURRENT_VERSION) {
-          setUpdateInfo({ latest: data.latest, download: data.download, changelog: data.changelog || '' });
-        }
-      })
-      .catch(() => {});
+    const checkVersion = () => {
+      fetch('https://fortress-options.com/version.json')
+        .then(r => r.json())
+        .then(data => {
+          if (data.latest && data.latest !== CURRENT_VERSION) {
+            setUpdateInfo({ latest: data.latest, download: data.download, changelog: data.changelog || '' });
+          }
+        })
+        .catch(() => {});
+    };
+    checkVersion();
+    const iv = setInterval(checkVersion, 30 * 60 * 1000);
+    return () => clearInterval(iv);
   }, []);
   const [plays, setPlays] = useState<Play[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);

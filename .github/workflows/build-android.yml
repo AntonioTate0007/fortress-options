@@ -1,0 +1,93 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'website/**'
+      - '**.md'
+      - '.github/workflows/build-mac.yml'
+      - '.github/workflows/build-android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Compute build identifiers
+        id: ids
+        run: |
+          DATE=$(date -u +%y%m%d)
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "version=2.4.$DATE" >> $GITHUB_OUTPUT
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Build Vite app
+        run: npm run build
+        env:
+          VITE_APP_VERSION: ${{ steps.ids.outputs.version }}
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+        env:
+          BUILD_CODE: ${{ steps.ids.outputs.date }}
+          BUILD_VERSION: ${{ steps.ids.outputs.version }}
+
+      - name: Locate APK
+        id: apk
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "path=$APK" >> $GITHUB_OUTPUT
+
+      - name: Upload to GitHub Releases (android-latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view android-latest || \
+            gh release create android-latest --title "Android — Latest Build" \
+              --notes "Auto-built on every push to main."
+          gh release upload android-latest \
+            "${{ steps.apk.outputs.path }}#fortress-options.apk" --clobber
+
+      - name: Update website/version.json
+        run: |
+          cat > website/version.json <<EOF
+          {
+            "latest": "${{ steps.ids.outputs.version }}",
+            "min_required": "1.3.0",
+            "download": "https://github.com/AntonioTate0007/fortress-options/releases/download/android-latest/fortress-options.apk",
+            "changelog": "Latest build — ${{ steps.ids.outputs.version }}"
+          }
+          EOF
+
+      - name: Commit updated version.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add website/version.json
+          git diff --cached --quiet || \
+            git commit -m "chore: bump version.json to ${{ steps.ids.outputs.version }} [skip ci]"
+          git push
