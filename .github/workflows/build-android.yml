@@ -69,11 +69,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cp "${{ steps.apk.outputs.path }}" fortress-options.apk
           gh release view android-latest || \
             gh release create android-latest --title "Android — Latest Build" \
               --notes "Auto-built on every push to main."
-          gh release upload android-latest \
-            "${{ steps.apk.outputs.path }}#fortress-options.apk" --clobber
+          gh release upload android-latest fortress-options.apk --clobber
 
       - name: Update website/version.json
         run: |
