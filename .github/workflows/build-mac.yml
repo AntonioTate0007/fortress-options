@@ -32,7 +32,7 @@ jobs:
           echo "version=2.4.$DATE" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Set version in package.json
         run: |
