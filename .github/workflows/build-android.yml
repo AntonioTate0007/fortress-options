@@ -9,6 +9,7 @@ on:
       - '**.md'
       - '.github/workflows/build-mac.yml'
       - '.github/workflows/build-android.yml'
+      - '.github/workflows/build-windows.yml'
 
 jobs:
   build:
@@ -40,7 +41,7 @@ jobs:
           echo "version=2.4.$DATE" >> $GITHUB_OUTPUT
 
       - name: Install Node deps
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Build Vite app
         run: npm run build

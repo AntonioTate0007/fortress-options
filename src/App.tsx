@@ -3440,7 +3440,7 @@ export default function App() {
       } catch {}
     });
 
-    // Handle FCM push received while app is in foreground — show local notification
+    // Handle FCM push received while app is in foreground — show local notification + refresh
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       LocalNotifications.schedule({
         notifications: [{
@@ -3453,6 +3453,8 @@ export default function App() {
           iconColor: '#10b981',
         }],
       }).catch(() => {});
+      // Immediately refresh plays/data so the new play appears without any tap required
+      loadAll();
     });
 
     // Handle notification tap (app in background or killed) — FCM
@@ -3464,6 +3466,8 @@ export default function App() {
       if (data?.analysis) {
         setPushAnalysis(data.analysis);
       }
+      // Re-fetch in case visibility-change already fired before this handler ran
+      loadAll();
     });
 
     // Handle LOCAL notification tap (plays / alerts) — switch to plays tab + refresh
@@ -3480,10 +3484,16 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
+    // Poll every 90 seconds while the app is open so plays update without any user action
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadAll();
+    }, 90_000);
+
     return () => {
       PushNotifications.removeAllListeners();
       LocalNotifications.removeAllListeners();
       document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(pollInterval);
     };
   }, [loadAll]);
 
