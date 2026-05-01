@@ -51,7 +51,9 @@ jobs:
 
       - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
         env:
           BUILD_CODE: ${{ steps.ids.outputs.date }}
           BUILD_VERSION: ${{ steps.ids.outputs.version }}
