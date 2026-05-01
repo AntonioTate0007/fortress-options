@@ -32,12 +32,21 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "fortress-512.png"
+      "icon": "fortress-512.png",
+      "publish": {
+        "provider": "generic",
+        "url": "https://github.com/AntonioTate0007/fortress-options/releases/download/windows-latest/"
+      }
     },
     "mac": {
       "target": "dmg",
       "icon": "fortress-512.png",
-      "category": "public.app-category.finance"
+      "category": "public.app-category.finance",
+      "artifactName": "fortress-options.dmg",
+      "publish": {
+        "provider": "generic",
+        "url": "https://github.com/AntonioTate0007/fortress-options/releases/download/mac-latest/"
+      }
     },
     "linux": {
       "target": "AppImage",
@@ -45,10 +54,12 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "fortress-options-setup.exe"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.3.0",
     "@aparajita/capacitor-biometric-auth": "^7.2.0",
     "@capacitor/android": "^6.0.0",
     "@capacitor/core": "^6.0.0",
