@@ -1,0 +1,59 @@
+{
+  "backtest_period": {
+    "start": "2024-09-23",
+    "end": "2026-09-23"
+  },
+  "metrics": {
+    "total_trades": 10,
+    "win_rate": 100.0,
+    "avg_credit": 38.9,
+    "avg_pnl": 21.06,
+    "total_pnl": 210.59,
+    "max_drawdown": 0.0,
+    "tp_hit_rate": 90.0,
+    "worst_trades": [
+      {
+        "ticker": "QQQ",
+        "entry_date": "2025-11-04",
+        "exit_date": "2025-11-28",
+        "pnl": 12.93,
+        "pnl_pct": 2.7
+      },
+      {
+        "ticker": "QQQ",
+        "entry_date": "2025-01-07",
+        "exit_date": "2025-01-21",
+        "pnl": 15.99,
+        "pnl_pct": 3.4
+      },
+      {
+        "ticker": "SPY",
+        "entry_date": "2025-04-01",
+        "exit_date": "2025-05-12",
+        "pnl": 16.59,
+        "pnl_pct": 3.6
+      }
+    ],
+    "cumulative_pnl": [
+      15.99,
+      48.72,
+      65.31,
+      84.35,
+      108.71,
+      121.63999999999999,
+      141.75,
+      161.57999999999998,
+      189.92,
+      210.58999999999997
+    ]
+  },
+  "sizing": {
+    "kelly_pct": 100.0,
+    "half_kelly_pct": 50.0,
+    "capped_kelly_pct": 50.0,
+    "position_size": 1500.0,
+    "contracts": 3,
+    "avg_max_risk": 461.1
+  },
+  "recommendation": "SELECTIVE"
+}
